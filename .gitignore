@@ -1,0 +1,12 @@
+.idea
+Downloads
+venv
+debugger.py
+Logs
+*.xml
+*.pyc
+debug.log
+Temp
+test2.py
+chromedriver.exe
+*.log

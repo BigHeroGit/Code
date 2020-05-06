@@ -1,0 +1,26 @@
+class AcompanhamentoModel:
+    def __init__(self, acp_id=None,
+                 acp_prc_id=None,
+                 acp_plp_id=None,
+                 acp_tipo=None,
+                 acp_esp=None,
+                 acp_data_cumprimento=None,
+                 acp_data_evento=None,
+                 acp_data_prazo=None,
+                 acp_data_cadastro=None,
+                 acp_data=None,
+                 acp_pra_status=None,
+                 acp_numero=None):
+        self.acp_id = acp_id
+        self.acp_prc_id = acp_prc_id
+        self.acp_plp_id = acp_plp_id
+        self.acp_tipo = acp_tipo
+        self.acp_esp = acp_esp
+        self.acp_data_cumprimento = acp_data_cumprimento
+        self.acp_data_evento = acp_data_evento
+        self.acp_data_prazo = acp_data_prazo
+        self.acp_data_cadastro = acp_data_cadastro
+        self.acp_data = acp_data
+        self.acp_pra_status = acp_pra_status
+        self.acp_numero = acp_numero
+        # self.lista_id_download = None

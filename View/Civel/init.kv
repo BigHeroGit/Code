@@ -1,0 +1,19 @@
+<TelaPrincipal@BoxLayout>:
+    orientation: 'vertical'
+
+#título:
+    Label:
+        markup: True
+        text: 'Interface Grafica'
+        font_size: '40sp'
+        size_hint: .8, .1
+        pos_hint: {'center_x': .5, 'top': 1.}
+
+#btn1:
+    Button:
+        id: btn2
+        text: 'Sair'
+        size_hint: .2, .1
+        pos_hint: {'center_x': .35, 'top': .25}
+        background_color: (255, 0, 0, .4)
+        on_release: app.stop()
