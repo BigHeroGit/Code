@@ -13,7 +13,7 @@ from Model.Civel.pjeModel import PjeModel as TratarAudiencia
 
 
 class projudiMaranhaoController(ProjudiModel):
-    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau='1Grau'):
+    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau=1):
         super().__init__(site, mode_execute, access, platform_id, platform_name, 'MA', grau)
         self.platform_name = platform_name
         self.platform_id = int(platform_id)

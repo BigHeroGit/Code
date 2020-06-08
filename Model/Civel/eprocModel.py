@@ -13,12 +13,12 @@ import codecs
 
 class EprocModel(RootModel):
 
-    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau='1Grau'):
+    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau=1):
         self.platform_name = platform_name
         self.platform_id = platform_id
         self.flag = flag
         self.num_thread = num_thread
-        self.grau = 1 if '1' in grau else '2'
+        self.grau = 1 if 1 == grau else 2
         self.log_error = None
         self.state = "TO"
         super().__init__(site=site, mode_execute=mode_execute, SQL_Long=access, platform_id=platform_id,

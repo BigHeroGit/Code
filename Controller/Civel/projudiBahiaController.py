@@ -14,7 +14,7 @@ from Model.Civel.pjeModel import PjeModel as TratarAudiencia
 class projudiBahiaController(ProjudiModel):
 
     def __init__(self, site, mode_execute, SQL_Long, platform_id, platform_name, state, num_thread, link_consulta, flag,
-                 grau='1'):
+                 grau=1):
         self.num_thread = num_thread
         self.platform_name = platform_name
         self.platform_id = platform_id
@@ -58,7 +58,6 @@ class projudiBahiaController(ProjudiModel):
         self.browser.execute_script("window.stop();")
         print('executou o stop')
         return True;
-
         # CLICA NO BOTÃO ENTRAR
         # self.navegador.find_element_by_xpath(xpath_btn_entrar).click()
 

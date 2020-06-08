@@ -237,7 +237,7 @@ class pjeThreadController(threading.Thread):
         self.flag = flag
         self.row_database = row_database
         self.num_thread = num_thread
-        self.grau = '1Grau' if grau == 1 else '2Grau'
+        self.grau = 1 if grau == 1 else 2
         self.dict_plp_2grau = dict_plp_2grau
 
         self.civel_trabalhista = civel_trabalhista
@@ -301,7 +301,7 @@ class pjeThreadController(threading.Thread):
 
     def run(self):
 
-        grau = 1 if "1" in self.grau else 2
+        grau = 1 if 1 == self.grau else 2
         print("CIVEL TRABALHISTA:", self.civel_trabalhista)
         if int(self.civel_trabalhista) <= 1: # 1 é processos do pje cível
             link_site ={('DF',1):('https://pje.tjdft.jus.br/pje/login.seam','https://pje.tjdft.jus.br/pje/Processo/ConsultaProcesso/listView.seam'),

@@ -8,11 +8,13 @@ import os
 def Processum_mult_thread(num_tread, num_processo):
 
     try:
-        access = ['144.217.126.74', 'sa', 'becadv123', 'titanium_dev?charset=utf8']
+        access = ['144.217.126.74', 'sa', 'BEC@db521', 'titanium_dev?charset=utf8']
         # LOGIN NA PLATAFORMA E BUSCA DOS PROCESSOS NO BANCO DE DADOS
         data = datetime(datetime.now().year , datetime.now().month, datetime.now().day,
                         datetime.now().hour, datetime.now().minute, datetime.now().second)
         conn_database = SQL(access[0], access[1], access[2])
+
+
         row_database,dict_acp_arq = conn_database.search_process_sequencial(data)
 
         # "row_database=[prc_sequencial, plp_status, prc_numero, prc_id,plp_id, prc_estado, cadastro, plp_codigo,
@@ -70,7 +72,8 @@ def Processum_mult_thread(num_tread, num_processo):
 def Platform_mult_thread(num_tread,platform_name, platform_id ,state,grau,civel_trabalhista):
     # LOGIN NA PLATAFORMA E BUSCA DOS PROCESSOS NO BANCO DE DADOS
     try:
-        conn_database = SQL('144.217.126.74', 'sa','becadv123')
+        # INSTANCIA O OBJETO QUE FAZ A CONEXÃO COM O BANCO, BUSCA
+        conn_database = SQL('45.35.42.204', 'sa','BEC@db521')
         row_database, dict_plp_2_grau = conn_database.search_process_for_update(state=state.upper(),platform=platform_id
                                                                                 ,grau=1,area=civel_trabalhista)
 
@@ -136,6 +139,7 @@ def Platform_mult_thread(num_tread,platform_name, platform_id ,state,grau,civel_
         raise
         return False
     return [num_tread,platform_name.upper(),state.upper(),platform_id,grau,0]
+
 '''
 1	Processum
 2	Pje
@@ -157,33 +161,34 @@ civel_trabalhista = 1# 1 se for cível e 2 caso seja trabahista
 
 lista_ple=[
             #--------5      Esaj-------------------------------------
-                # (1,"esaj",5,'am',1),
-                # (1,"esaj",5,'am',2),
-                # (1,"esaj",5,'ms',1),
-                #(1,"esaj",5,'ms',2),
-                # (7,"esaj",5,'ac',1),
-                # (5,"esaj",5,'ac',2),
+                #(3,"esaj",5,'am',1),
+                #(1,"esaj",5,'ms',1),
+                #(3,"esaj",5,'ac',1),
+
+                #(5,"esaj",5,'am',1),
+                # (1,"esaj",5,'ms',2),
+                #(3,"esaj",5,'ac',2),
 
             #------3    Projudi----------------------------------------
-                 #(1,"projudi",3,'ma',1),
-                #(1,"projudi",3,'ma',2),
-                (4,"projudi",3,'go',1),
-                #(1,"projudi",3,'go',1),
-                # (3,"projudi",3,'am',1),
-                # (1,"projudi",3,'am',2),
-                # (1,"projudi",3,'rr',1),
+                 #(1,"projudi", 3, 'ma', 1),
+                # (1,"projudi",3,'ma',2),
+                # (1,"projudi",3,'go',1),
+                # (1,"projudi",3,'go',1),
+                #(1, "projudi",3,'am', 1),
+                #(2,"projudi",3,'am',2),
+                #(3, "projudi", 3,'rr',1),
                 # (1,"projudi",3,'rr',2),
-                # (1,"projudi",3,'pa',1),
+                #(3, "projudi",3,'pa',1),
                 # (1,"projudi",3,'ba',1),
 
 
             #-------2      Pje  Cível ---------------------------------------
                #(1,"pje",2,'sp',1),
-               #(1,"pje",2,'ma',1),
+               # (2,"pje",2,'ma',1),
                # (1,"pje",2,'rj',1),
                #(1,"pje",2,'ma',1),
-               #(1,"pje",2,'df',1),
-               # (2,"pje",2,'df',2),
+               (1,"pje",2,'df',1),
+               #(3,"pje",2,'df',2),
                #(1,"pje",2,'pa',1),
                #(1,"pje",2,'ro',1),
                #(1,"pje",2,'pa',1),
@@ -191,10 +196,11 @@ lista_ple=[
                # (1,"pje",2,'ba',2),
 
             #----7      EPROC---------------------------------------
+                # (6,"e-proc",7,'to',1),
                 #(1,"e-proc",7,'to',1),
 
             # ----6      Tucujuris-------------------------------------
-                  #(1,"tucujuris",6,'ap',1),
+                 #(1,"tucujuris",6,'ap',1),
 
 
             (-1,-1,-1,-1)

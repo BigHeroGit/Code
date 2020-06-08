@@ -1,7 +1,7 @@
 import time
 import win32ui
-# import pyautogui
-# from pywinauto.application import Application
+import pyautogui
+from pywinauto.application import Application
 import keyboard
 import re
 from time import sleep
@@ -23,14 +23,17 @@ class Tools(metaclass=abc.ABCMeta):
     @staticmethod
     def extrair_date_string(string):
         # string= re.sub('[^a-zA-Z0-9-\t \n]', '', normalize('NFKD', string).encode('ASCII', 'ignore').decode('ASCII'))
-        # a=input(string)
+
         data_padrao = r'[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]'  # Padrão data
         hora_parao_tipo_1 = r'[0-9][0-9]:[0-9][0-9]:[0-9][0-9]'
         hora_parao_tipo_2 = r'[0-9][0-9]:[0-9][0-9]'
         lista_hora_aux_1=re.findall(hora_parao_tipo_1, string)
         lista_hora_aux_2=re.findall(hora_parao_tipo_2, string)
         data = re.findall(data_padrao, string)[0]  # Retorna um vetor com as datas encontradas na string
-        data += (' ' + (lista_hora_aux_1[0] if len(lista_hora_aux_1)>0 else lista_hora_aux_2[0]))
+        if len(lista_hora_aux_1)>0:
+            data += " " + str(lista_hora_aux_1[0])
+        elif len(lista_hora_aux_2)>0:
+            data+=" "+ str(lista_hora_aux_2[0])
         return Tools.treat_date(data)
     # TRANSFORMAR AS DATAS NO FORMATO DO BANCO DE DADOS
     @staticmethod
@@ -40,30 +43,32 @@ class Tools(metaclass=abc.ABCMeta):
         data = data.lower()
 
         if data.find('/') >= 0 or data.find('-') >= 0:
-            data = data.replace(' as ', ';').replace(' hora ', ';').replace(' ', ';').replace('/', ';').\
+            data = data.replace(' as ', ';').replace(' hora ', ';').replace(' ', ';').replace('/', ';'). \
                 replace('-', ';')
             aux = data.split(';')
             if len(aux) == 3:
                 aux.append('0:0:0')
             dia, mes, ano, auxs_hrs = aux
         else:
-            meses = {"janeiro": '01',"jan": '01',"january":'01',
-                     "fevereiro": '02', "february": '02',"feb": '02',"fev":'02',
-                     "marco": '03',"mar": '03',"march":'03',
-                     "abril": '04', "april": '04',"abr": '04',"apr":'04',
-                     "maio": '05', "mai": '05',"may": '05',
-                     "junho": '06',"jun": '06',"june":'06',
-                     "julho": '07',"jul": '07',"july":'07',
-                     "agosto": '08', "august": '08', "aug": '08',"ago":'08',
-                     "setembro": '09', "september": '09',"sep": '09',"set":'09',
-                     "outubro": '10', "october": '10', "oct": '10',"out":'10',
-                     "novembro": '11', "nov": '11',"november":'11',
-                     "dezembro": '12', "december": '12', "dec": '12',"dez":'12'}
-            data = data.replace(' de ', ';').replace(' as ', ';').replace(' hora ', ';').replace(' ', ';')\
+            meses = {"janeiro": '01', "jan": '01', "january": '01',
+                     "fevereiro": '02', "february": '02', "feb": '02', "fev": '02',
+                     "marco": '03', "mar": '03', "march": '03',
+                     "abril": '04', "april": '04', "abr": '04', "apr": '04',
+                     "maio": '05', "mai": '05', "may": '05',
+                     "junho": '06', "jun": '06', "june": '06',
+                     "julho": '07', "jul": '07', "july": '07',
+                     "agosto": '08', "august": '08', "aug": '08', "ago": '08',
+                     "setembro": '09', "september": '09', "sep": '09', "set": '09',
+                     "outubro": '10', "october": '10', "oct": '10', "out": '10',
+                     "novembro": '11', "nov": '11', "november": '11',
+                     "dezembro": '12', "december": '12', "dec": '12', "dez": '12'}
+            data = data.replace(' de ', ';').replace(' as ', ';').replace(' hora ', ';').replace(' ', ';') \
                 .replace('/', ';').replace('\t', ';')
             aux = data.split(';')
             if len(aux) == 3:
                 aux.append('0:0:0')
+
+
             dia, mes, ano, auxs_hrs = aux
             if mes in meses.keys():
                 mes = meses[mes]
@@ -90,9 +95,10 @@ class Tools(metaclass=abc.ABCMeta):
     # TRANFORMA STRING EM VALORES DE MOEDA REAL
     @staticmethod
     def treat_value_cause(valor_causa):
-        valor_causa =  normalize('NFKD', valor_causa).encode('ASCII', 'ignore').decode('ASCII')
+
         if valor_causa is None:
             return None
+        valor_causa = normalize('NFKD', valor_causa).encode('ASCII', 'ignore').decode('ASCII')
         valor_causa = re.sub('[a-z.A-Z$-/]', '', valor_causa)
         valor_causa = re.sub('[,]', '.', valor_causa)
         if  not len(valor_causa):
@@ -159,7 +165,7 @@ class Tools(metaclass=abc.ABCMeta):
             shutil.move(str(de) + "/" + str(antigo_nome), str(para) + "/" + nome_novo)
         except OSError as err:
 
-            log.insert_log(str(err))
+            print("ERRO NA HORA DE MOVER O ARQUIVO!")
             # sleep(60*60)
 
     # CONVERTE A DATA NUMA STRING BASE64
@@ -178,7 +184,6 @@ class Tools(metaclass=abc.ABCMeta):
             return False
         else:
             return True
-
 
     @property
     def enter_click(self):
@@ -201,15 +206,15 @@ class Tools(metaclass=abc.ABCMeta):
                 print(time.time() - t0 >= segundos)
                 if time.time() - t0 >= segundos:
                    return False
-            # app = Application().connect(title='Autorização')
-            # window = app.top_window()
-            # window.set_focus()
-            # w, h = pyautogui.size()  # obtém o tamanho da tela
-            # pyautogui.click((w/2) - 32, (h/2))  # Click com botão esquerdo na coordenada informada
-            # sleep(1.5)
-            # pyautogui.click((w / 2) - 32, (h / 2))  # Click com botão esquerdo na coordenada informada
-            # # sleep(60*60)
-            # keyboard.press_and_release('\n')
+            app = Application().connect(title='Autorização')
+            window = app.top_window()
+            window.set_focus()
+            w, h = pyautogui.size()  # obtém o tamanho da tela
+            pyautogui.click((w/2) - 32, (h/2))  # Click com botão esquerdo na coordenada informada
+            sleep(1.5)
+            pyautogui.click((w / 2) - 32, (h / 2))  # Click com botão esquerdo na coordenada informada
+            # sleep(60*60)
+            keyboard.press_and_release('\n')
         except:
             print("Erro")
             return False

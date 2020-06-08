@@ -1,50 +1,60 @@
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+
 from Database.connDatabase import SQL
-from selenium.common.exceptions import *
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from socket import gethostbyname, create_connection
 from Model.toolsModel import *
 from Model.processoPlataformaModel import ProcessoPlataformaModel
-from selenium import  webdriver
+from selenium import webdriver
 from Model.processoArquivoModel import ProcessoArquivoModel
+import smtplib
+# Import the email modules we'll need
+from email.mime.text import MIMEText
 
 import codecs
 
 
 class RootModel:
-
     # virtualização de atributo
-    log_error=None
+    log_error = None
     user = None
     password = None
 
     def __init__(self, site, mode_execute, SQL_Long, platform_id, platform_name, estado='Default', grau=1):
-        self.path_download_prov = os.path.abspath('../../Downloads/' + estado + '/' + platform_name + '/' +str(grau)+'Grau/Download' + str(hex(id(self))))
+        self.path_download_prov = os.path.abspath(
+            '../../Downloads/' + estado + '/' + platform_name + '/' + str(grau) + 'Grau/Download' + str(hex(id(self))))
         Tools.new_path(str(self.path_download_prov))
         self.site = site
+        self.grau = grau
         self.chrome_options = webdriver.ChromeOptions()
         self.chrome_options.add_experimental_option("prefs",
                                                     {"download.default_directory": r"" + str(self.path_download_prov),
                                                      "download.prompt_for_download": False,
                                                      "download.directory_upgrade": True,
                                                      "safebrowsing.enabled": False,
-                                                     "profile.default_content_settings.popups": 0,
-                                                     "profile.content_settings.pattern_pairs.*.multiple-automatic-downloads":1,
-                                                     "safebrowsing_for_trusted_sources_enabled": False,
-                                                     "safebrowsing.enabled": False,
-                                                     'profile.default_content_settings.multiple-automatic-downloads': 1,
                                                      "safebrowsing_for_trusted_sources_enabled": False,
                                                      'download.extensions_to_open': 'msg',
-                                                     "profile.default_content_setting_values.automatic_downloads": 1,
                                                      "plugins.always_open_pdf_externally": True,
-                                                     "profile.content_settings.exceptions.automatic_downloads.*.setting":True})
-
+                                                     "profile.default_content_setting_values.automatic_downloads": 1,
+                                                     "profile.content_settings.exceptions.automatic_downloads.*.setting": True
+                                                     })
+        # self.chrome_options.add_argument("--headless")
 
         self.visivel = mode_execute
         self.chrome_options.add_argument("--enable-features=NetworkService,NetworkServiceInProcess")
         self.chrome_options.add_argument("--ignore-certificate-errors")
-        self.chrome_options.add_argument("--disable-notifications")
+        # ChromeDriver is just AWFUL because every version or two it breaks unless you pass cryptic arguments
+        # AGRESSIVE: options.setPageLoadStrategy(PageLoadStrategy.NONE); #https://www.skptricks.com/2018/08/timed-out-receiving-message-from-renderer-selenium.html
+        # self.chrome_options.add_argument("start-maximized")  # https://stackoverflow.com/a/26283818/1689770
+        # self.chrome_options.add_argument("enable-automation")  # https://stackoverflow.com/a/43840128/1689770
+        # self.chrome_options.add_argument("--headless")  ##### only if you are ACTUALLY running headless
+        # self.chrome_options.add_argument("--no-sandbox")  # https://stackoverflow.com/a/50725918/1689770
+        # self.chrome_options.add_argument("--disable-infobars")  ##https://stackoverflow.com/a/43840128/1689770
+        # self.chrome_options.add_argument("--disable-dev-shm-usage")  # https://stackoverflow.com/a/50725918/1689770
+        # self.chrome_options.add_argument(
+        #     "--disable-browser-side-navigation")  # https://stackoverflow.com/a/49123152/1689770
+        # self.chrome_options.add_argument(
+        #     "--disable-gpu")  # https://stackoverflow.com/questions/51959986/how-to-solve-selenium-chromedriver-timed-out-receiving-message-from-renderer-exc
 
         # self.browser = None
         self.Access_AQL = SQL_Long
@@ -52,6 +62,7 @@ class RootModel:
         self.platform_name = platform_name
         self.database = SQL(self.Access_AQL[0], self.Access_AQL[1], self.Access_AQL[2])
         self.montar_dicionario()
+        self.linha_parou = 0
         # montar dicionario com o nome de todas as cidades do brasil para pegar a comarca
 
     def montar_dicionario(self):
@@ -75,7 +86,6 @@ class RootModel:
 
     def separar_comarca(self, comarca):
 
-
         comarca = comarca.upper()
         lista = self.dicionario_cidade[self.state.upper().replace(" ", "")]
 
@@ -95,31 +105,28 @@ class RootModel:
         # se não conseguiu achar
 
         return False
+
     def __del__(self):
         print(self.path_download_prov)
         Tools.delete_path(self.path_download_prov)
         self.database.__del__()
         # Tools.delete_path('../../WebDriver/' +self.id_chrome)
 
-    #MAPEAMENTO DOS TRTS DO PJE TRABALHISTA
-
+    # MAPEAMENTO DOS TRTS DO PJE TRABALHISTA
 
     # ABRE O NAVEGADOR PARA INICIAR AS BUSCAS
     def init_browser(self):
-        try:
-            print("INICIANDO BROWSER")
-            local = str( os.path.abspath('../../WebDriver/chromedriver.exe'))
-            self.browser = webdriver.Chrome(local, options=self.chrome_options)
-            self.browser.maximize_window()
-            self.browser.get(self.site)
 
-            #if self.visivel:
-                #self.browser.set_window_position(-10000, 0)
-            return True
-        except:
-            raise
-            # print("Ruim")
-            return False
+        print("INICIANDO BROWSER")
+        local = str(os.path.abspath('../../WebDriver/chromedriver.exe'))
+
+        self.browser = webdriver.Chrome(executable_path=local, options=self.chrome_options)
+        self.browser.maximize_window()
+        self.browser.get(self.site)
+
+        # if self.visivel:
+        # self.browser.set_window_position(-10000, 0)
+        return True
 
     # LIMPA A PASTA DE  DOWNLOAD TEMPORÁRIA
     def clear_path_download(self):
@@ -153,17 +160,21 @@ class RootModel:
     # EXPORTA OS DADOS DO OBJETO PARA O BANCO DE DADOS
     def export_to_database(self, objects, log, list_name_urls, platform, state, root):
         print('###Transferindo arquivos e exportando objetos para o banco de dados...'.upper())
-
+        lista_de_processos = objects  # Lista de processos com todos os dados
         print("Tam list name export", len(list_name_urls))
-        for obj in objects:
-            if obj[5] is None:
+        print("tam lista de objs:", len(objects))
+
+        print("OBJETO INSERIR: ", objects[0][0].plp_grau)
+
+        for processo in lista_de_processos:
+            if processo[5] is None:
                 print("Insert")
-                self.database.insert_process(obj=obj, log=log, list_name_urls=list_name_urls,
-                                        platform=platform, state=state, root=root)
+                self.database.insert_process(obj=processo, log=log, list_name_urls=list_name_urls, platform=platform,
+                                             state=state, root=root)
             else:
                 print("Update:")
-                self.database.update_process(obj=obj, log=log, list_name_urls=list_name_urls,
-                                        platform=platform, state=state, root=root)
+                self.database.update_process(obj=processo, log=log, list_name_urls=list_name_urls,
+                                             platform=platform, state=state, root=root)
 
     def donwloadAcompanhamento(self, nome):
 
@@ -184,15 +195,13 @@ class RootModel:
         temp_inicio = time.time()
         baixando = True
 
-
         # try:
         temp_inicio = time.time()
         baixando = True
 
-
         while baixando:
 
-            if (time.time() - temp_inicio) >= 60:  # passou  um minto
+            if (time.time() - temp_inicio) >= 240:  # 4minutos minutos
                 return True
 
             dir = os.listdir(self.path_download_prov)
@@ -210,31 +219,29 @@ class RootModel:
         # except:
         #     return True
 
-    def verificar_arquivado(self,descricao):
+    def verificar_arquivado(self, descricao):
 
         palavras = ['BAIXA DEFINITIVA', 'ARQUIVADO', 'BAIXADO']
         for chaves in palavras:
             if chaves in descricao.upper():
-                return  'ARQUIVADO'
+                return 'ARQUIVADO'
         return 'ATIVO'
 
     # TRANSFERE OS ARQUIVOS BAIXADOS PARA O PATH
     def transfer_files(self, state, list_name_urls, plp_id, log):
         # CRIA PATH PARA TRANSFERÊNCIA DOS ANEXOS
-        # print("\n\n\n\t\tlen(list_name_urls) {}".format(len(list_name_urls)))
+
         if len(list_name_urls) > 0:
-            pasta_d='D:/titanium/Downloads/' + state + '/' + self.platform_name + '/' + str(plp_id)
-            # pasta_d='../../../titanium/Downloads/' + state + '/' + self.platform_name + '/' + str(plp_id)
+            pasta_d = 'D:/titanium/Downloads/' + state + '/' + self.platform_name + '/' + str(plp_id)
             Tools.new_path(pasta_d)
             path_proc = os.path.abspath(pasta_d)
             # VERIFICA SE OS DOWNLOADS FORAM FINALIZADOS
             for new_name, old_name in list_name_urls:
                 Tools.transfer_and_rename_files(old_name, new_name, self.path_download_prov, path_proc, log)
         self.clear_path_download()
-        print('\t- Transferência dos arquivos finalizada'.upper())
-        # input("\n\n\n\t (231)")
+        print('TRANSFERENCIA DOS ARQUIVOS FINALIZADA')
 
-    #--------GENERALIZAÇÂO DO METODO DE VARREDURA
+    # --------GENERALIZAÇÂO DO METODO DE VARREDURA
     # VALIDA A INICIALIZAÇÃO DA VARREDURA NA PLATAFORMA
     def initializer(self, user, password):
         while True:
@@ -249,38 +256,40 @@ class RootModel:
 
         # SEPARA OS DADOS DA AUDIENCIA QUE ESTA NO ACOMPANHAMENTO
 
-    def verifica(self, n_files, list_file_path, list_name_urls,nome_donwload=None):  # retorna uma lista de processo arquivos
+    def verifica(self, n_files, list_file_path, list_name_urls,
+                 nome_donwload=None):  # retorna uma lista de processo arquivos
 
         lista_processoArquivo = []
         err_down = self.wait_download(n_files)
 
         if not err_down:  # not err_down: # se o download concluiu totalmente sem nehum erro
 
-            arquivo = set(os.listdir(self.path_download_prov)).difference(set(list_file_path))  # difereça de dois conjuntos
+            arquivo = set(os.listdir(self.path_download_prov)).difference(
+                set(list_file_path))  # difereça de dois conjuntos
             file_downloaded = arquivo.pop()  # pega o nome do arquivo que foi baixado
             arquivo = list(arquivo)
 
             if len(arquivo) > 1:  # Tem multiplos donwloads
                 for i in range(0, len(arquivo), 1):
-
                     nome = Tools.convert_base(str(datetime.now()))
 
                     list_name_urls.append((nome, arquivo[i]))
                     nome = nome + '.' + arquivo[i].split('.')[-1]
-                    lista_processoArquivo.append(ProcessoArquivoModel(pra_nome=nome, pra_descricao=arquivo[i], pra_erro=0))
+                    lista_processoArquivo.append(
+                        ProcessoArquivoModel(pra_nome=nome, pra_descricao=arquivo[i], pra_erro=0))
 
                 print("multiplos")
                 self.log_error.insert_log("Multiplos donwloads processo, verificar!!")
 
             nome = Tools.convert_base(str(datetime.now())) if nome_donwload == None else nome_donwload
-            list_name_urls.append((nome,file_downloaded))  # Primeiro é o nome que quer renomear segundo o original, o primeiro não tem extensão
+            list_name_urls.append((nome,
+                                   file_downloaded))  # Primeiro é o nome que quer renomear segundo o original, o primeiro não tem extensão
             nome = nome + '.' + file_downloaded.split('.')[-1]
 
             lista_processoArquivo.append(ProcessoArquivoModel(pra_nome=nome, pra_descricao=file_downloaded, pra_erro=0))
             return True, lista_processoArquivo
 
         else:
-            i = input("Deu erro ")
 
             return False, [ProcessoArquivoModel(pra_erro=1)]
 
@@ -293,8 +302,9 @@ class RootModel:
             status = ""
             informacoes = audiencia.upper()
             # PEGAR O TIPO DA AUDIENCIA
-            lista_una = ['UNA','CONCILIAÇÃO, INSTRUÇÃO E JULGAMENTO', 'CONCILIAÇÃO-INSTRUÇÃO E JULGAMENTO',
-                         'INSTRUÇÃO E JULGAMENTO','INSTRUÇÃO','JULGAMENTO','CONCILIAÇÃO','INICIAL']
+            lista_una = ['UNA', 'CONCILIAÇÃO, INSTRUÇÃO E JULGAMENTO', 'CONCILIAÇÃO-INSTRUÇÃO E JULGAMENTO',
+                         'INSTRUÇÃO E JULGAMENTO', 'INSTRUÇÃO', 'JULGAMENTO', 'CONCILIAÇÃO', 'COMUM', 'INICIAL',
+                         'MEDIAÇÃO']
             for i in lista_una:
                 if i in informacoes:
                     tipo = i
@@ -310,8 +320,9 @@ class RootModel:
                 if i in informacoes:
                     status = i
                     break
-            if type(list()) == type(status): # Se for uma lista quer dizer que não encontrou nehum status, provalvelmente não e uma audiencia
-                status=""
+            if type(list()) == type(
+                    status):  # Se for uma lista quer dizer que não encontrou nehum status, provalvelmente não e uma audiencia
+                status = ""
             import re
             data_padrao = r'[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]'  # Padrão data
             hora_parao = r'[0-9][0-9]:[0-9][0-9]'
@@ -331,7 +342,7 @@ class RootModel:
             # print('tipo: ', tipo, 'status: ', status, 'data: ', data)
             if (tipo == "" or status == "") and status != "REALIZADA":
                 return False
-            return (tipo if tipo!="" else None, status, data, None, data2)
+            return (tipo if tipo != "" else None, status, data, None, data2)
         except:
             raise
             return False
@@ -348,7 +359,7 @@ class RootModel:
     # VERIFICA SE O NAVEGADOR ESTÁ ABERTO
     def verificar_se_o_navegador_esta_aberto(self):
         try:
-           self.browser.find_element_by_tag_name('body')
+            self.browser.find_element_by_tag_name('body')
         except NoSuchWindowException:
             self.browser.quit()
             return False
@@ -371,7 +382,7 @@ class RootModel:
     # EXIBIÇÃO DE INFORMAÇÕES PREVIAS E TRATAMENTO DO PRC_NUMERO
     def print_info_previo_e_trata_prc_numero(self, prc_numero, prc_id, plp_id, i_n):
         prc_numero = re.sub('[^0-9]', '', prc_numero)
-        self.log_error.insert_title(prc_numero)
+
         print("{}ª: Coleta de dados do processo: <>{}<>".format(i_n, prc_numero).upper())
         print("\tPRC_ID : {}".format(prc_id).upper())
         print("\tPLP_ID : {}\n".format(plp_id).upper())
@@ -388,9 +399,9 @@ class RootModel:
 
     # CRIANDO OBJETOS E INSERINDO NO BANCO DE DADOS
     def construct_list_obj_insert_bd(self, process_platform, list_name_urls=[], list_partes=[], list_advogs=[],
-                                     list_aud=[],list_acp_pra=[], plp_id=None, list_plp_2_grau=[]):
+                                     list_aud=[],
+                                     list_acp_pra=[], plp_id=None, list_plp_2_grau=[]):
 
-        print('\n\n\t\t\tlist_plp_2_grau -> ',len(list_plp_2_grau))
         # for i in list_acp_pra:
         #     print(f"Date: {i[0].acp_data_cadastro} QtdDowload: {len(i[1])}\n")
         # input('Dowload correto?')
@@ -401,24 +412,24 @@ class RootModel:
         for i in process_platform.__dict__.items():
             aux += '\t\t\t{} = {}\n'.format(i[0], i[1])
 
-        print("\n\n\t\t\t plp_localizado {} \t plp_id {}\n ".format(process_platform.plp_localizado,plp_id))
+        print("\n\n\t\t\t plp_localizado {} \t plp_id {}\n ".format(process_platform.plp_localizado, plp_id))
 
         # # INSERE A LISTA DE OBJETOS NO BANCO DE DADOS
+        print("Tamanho lista õbj", len(list_objects_process))
         self.export_to_database(objects=list_objects_process, log=self.log_error, list_name_urls=list_name_urls,
                                 platform=self.platform_name, state=self.state, root=self)
-        # input('Dowload correto?')
-        self.log_error.insert_info('Procedimento finalizado!')
 
     # COLETA DO NUMERO DmO PROCESSO DO 2 GRAU E CRIAR O PLP COM HAJA NO 2º GRAU!
     def validar_bool_2_grau(self, bool_2_grau, bool_2_grau_numero, prc_numero, prc_id):
         return []
 
-    # SOLICITA PERMIÇÃO DE ACESSO AOS ARQUIVOS
+        # SOLICITA PERMIÇÃO DE ACESSO AOS ARQUIVOS
+
     def request_access(self):
         pass
 
-     # PEGA OS ENVOLVIDOS E RETORNA UMA LISTA COM AS PARTES E OS ADVOGADOS/JUIZ
-    @property
+    # PEGA OS ENVOLVIDOS E RETORNA UMA LISTA COM AS PARTES E OS ADVOGADOS/JUIZ
+
     def envolvidos(self):
         pass
 
@@ -427,7 +438,7 @@ class RootModel:
         pass
 
     # PEGA ANDAMENTOS DO PROCESSO, AS AUDIÊNCIAS E REALIZA OS DOWNLOADS POR ACOMPANHAMENTO
-    def acomp_down_aud(self, prc_id, ult_mov, bool_2_grau_numero,full = False):
+    def acomp_down_aud(self, prc_id, ult_mov, bool_2_grau_numero, full=False):
         pass
 
     # MONTAR PROCESSO-PLATAFORMA
@@ -441,21 +452,20 @@ class RootModel:
     def find_process(self, **kwargs):
         pass
 
-    def new_search(self,tempo) :
-        pass
+    def new_search(self, tempo):
+        return
 
     def secret_of_justice(self):
-        pass
+        return
 
     # VAlIDANDOS SE NUMERO DO PROCESSO CONTIDO NA PLATAFORMA E O MESMO CONTIDO NO SITE
     def validar_numero_plataforma(self, prc_numero):
-        pass
-
+        return
 
     # VERIFICA CADA NÚMERO DE PROCESSO RETORNADO DO BANCO DE DADOS NA PLATAFORMA
     def check_process(self, n_proc, prc_id, plp_id, plp_localizado, plp_codigo):
-    # RETORNA False SE TIVER ENCONTRADO PROCESSO
-    # RETORNA True SE FOR SEGREDO DE JUSTIÇA OU NÃO TIVER ENCONTRADO OU DER ALGUM ERRO
+        # RETORNA False SE TIVER ENCONTRADO PROCESSO
+        # RETORNA True SE FOR SEGREDO DE JUSTIÇA OU NÃO TIVER ENCONTRADO OU DER ALGUM ERRO
 
         # BUSCA O PROCESSO NA PLATAFORMA
         #  find_process RETORNA TRUE SE TIVER ENCONTRADO O PROCESSO
@@ -467,7 +477,7 @@ class RootModel:
             return True, -1
 
         # PROCESSO NÃO ENCONTRADO
-        if not var_bool:
+        if var_bool:
             print('Processo não encontrado!\nplp_localizado{}'.format(plp_localizado))
             if plp_localizado is None:
                 plp_localizado = 2
@@ -484,16 +494,14 @@ class RootModel:
                                                        plp_localizado=plp_localizado)
 
             for i in process_platform.__dict__.items():
-                if i[1] is not None and i[0]=='plp_localizado':
+                if i[1] is not None and i[0] == 'plp_localizado':
                     print(i[0], "\t", i[1])
 
             self.construct_list_obj_insert_bd(process_platform=process_platform, plp_id=plp_id)
 
-            self.reiniciar_browser
             return True, plp_localizado
 
         # VERIFICA SE O PROCESSO ESTÁ EM SEGREDO DE JUSTIÇA
-        # input('Processo em segredo de justiça!')
         if self.secret_of_justice():
             print('Processo em segredo de justiça!')
             process_platform = ProcessoPlataformaModel(plp_prc_id=prc_id, plp_plt_id=self.platform_id,
@@ -507,12 +515,11 @@ class RootModel:
 
         return False, plp_localizado
 
-
     # BUSCA PELO PROCESSO NA PLATAFORMA
     def busca_processo_na_plataforma(self, prc_numero, tupla_processo, t0, row_database):
         prc_id, prc_estado, plp_status, cadastro, plp_codigo, \
         plp_data_update, plp_id, plp_numero, plp_localizado = tupla_processo[1:-1]
-        print("plp_localizado_anterior -> {}".format(plp_localizado))
+        print("plp_localizado_anterior -> ", plp_localizado)
 
         if prc_numero is not None:  # PESQUISA PELO NÚMERO DE PROCESSO DA TABELA PROCESSO
             if len(prc_numero) != 20:
@@ -521,26 +528,12 @@ class RootModel:
 
         # RETORNA False SE TIVER ENCONTRADO PROCESSO E MANTEM O plp_localizado
         # RETORNA True SE NÃO TIVER ENCONTRADO PROCESSO E PASSA O plp_localizado PRA -1
-        # input('check??')
-
         nao_achou, plp_localizado = self.check_process(n_proc=prc_numero, prc_id=prc_id, plp_id=plp_id,
                                                        plp_localizado=plp_localizado, plp_codigo=plp_codigo)
 
-
         if nao_achou:
-            print(' plp_localizado == {}'.format(plp_localizado))
-            if plp_localizado == -1:
-                aux_i_prc = tupla_processo
-                aux_i_prc[9] = plp_localizado
-
-                if aux_i_prc not in row_database:
-                    row_database.append(aux_i_prc)
-                    print('### Processo foi reinserido novamente na lista de busca: {} SECS'.format(
-                        time.time() - t0).upper())
-                    print('-' * 65)
-            else:
-                print('###Tempo total da coleta de dados do processo: {} SECS'.format(time.time() - t0).upper())
-                print('-' * 65)
+            print('###Tempo total da coleta de dados do processo: {} SECS'.format(time.time() - t0).upper())
+            print('-' * 65)
 
             return True
 
@@ -570,7 +563,7 @@ class RootModel:
                     plp_localizado += 1
                 else:
                     plp_localizado = 0
-                self.grau = 1
+
                 process_platform = ProcessoPlataformaModel(plp_prc_id=prc_id, plp_plt_id=self.platform_id,
                                                            plp_segredo=False, plp_grau=self.grau,
                                                            plp_localizado=plp_localizado)
@@ -586,9 +579,9 @@ class RootModel:
 
         return False
 
-    def replaces(self,text,args):
+    def replaces(self, text, args):
         for i in args:
-            text = text.replace(i,'')
+            text = text.replace(i, '')
         return text
 
     def reiniciar_browser(self):
@@ -597,72 +590,177 @@ class RootModel:
         # INICIA O BROWSER E A SESSÃO NA PLATAFORMA
         self.initializer(user=self.user, password=self.password)
 
+    def imirmir_acompanhamentos(self, acomps):
+
+        for acmp in acomps:
+            print("\n\n##############################################################################")
+            print("acp_esp: ", acmp[0].acp_esp)
+            print("acp_data_cadastro: ", acmp[0].acp_data_cadastro)
+            print("acp_prc_id: ", acmp[0].acp_prc_id)
+            print("acp_numero: ", acmp[0].acp_numero)
+            print("acp_tipo: ", acmp[0].acp_tipo)
+            print("##############################################################################\n\n")
+
+    def pega_data_atual(self):
+        dia_atual = datetime.now()
+        dia_atual = datetime.strftime(dia_atual, '%Y-%m-%d %H:%M:%S')
+        return str(dia_atual)
+
+    # ENVIA O RELATORIO DA VARREDUARA DO TRT PARA O MEU EMAIL
+    def enviar_relatorio_email(self, painel_de_erros, img_erro=None):
+        """Função para enviar email quando der erro na varredura."""
+        print("Enviando erro para o  email!!!!!")
+        try:
+            # conexão com os servidores do google
+            smtp_ssl_host = 'smtp.gmail.com'
+            smtp_ssl_port = 465
+            # username ou email para logar no servidor
+            username = 'relatoriosestagio2020@gmail.com'
+            password = 'relatorios123'
+
+            from_addr = 'relatoriosestagio2020@gmail.com'
+            to_addrs = ['suporte@i4legal.com.br']
+
+            # a biblioteca email possuí vários templates
+            # para diferentes formatos de mensagem
+            # neste caso usaremos MIMEText para enviar
+            # somente texto
+            mensagem = painel_de_erros
+            mensagem += "############################################<br>"
+            mensagem += "# DATA DO FINAL DA VARREDURA:               #<br>"
+            mensagem += "# " + self.pega_data_atual() + " #<br>"
+            mensagem += "############################################<br>"
+            msg = MIMEMultipart()
+            # message = MIMEText(mensagem)
+            msg['subject'] = 'RELATORIO VARREDURA'
+            msg['from'] = from_addr
+            msg['to'] = ', '.join(to_addrs)
+
+            # Anexa a imagem
+            # img_erro  # Repare que é diferente do nome do arquivo local!
+
+            f = open(img_erro, 'rb')
+            msgImg = MIMEImage(f.read(), name=img_erro)
+
+            msg.attach(msgImg)
+
+            msgText = MIMEText('<b>{}</b><br><img src="cid:{}"><br>'.format(mensagem, img_erro), 'html')
+            msg.attach(msgText)
+
+            # conectaremos de forma segura usando SSL
+            server = smtplib.SMTP_SSL(smtp_ssl_host, smtp_ssl_port)
+            # para interagir com um servidor externo precisaremos
+            # fazer login nele
+            server.login(username, password)
+            server.sendmail(from_addr, to_addrs, msg.as_string())
+            server.quit()
+            print("EMAIL ENVIADO COM SUCESSO!")
+        except Exception as ERRO:
+            print('ERRO AO ENVIAR O EMAIL!')
+            print("ERRO: ", ERRO)
+
+    def pegar_site_tratado(self, site):
+        """função para pegar o site de varredura e deixar so o domínio para verificar a conecção"""
+        site = site.replace("https://", "")
+        r = site.find(".br")
+        r += 3
+        return site[:r]
+
+    # Verifica se esta conectado a internet e se é erro 404
+    def conectadoInternet(self, site):
+        """Fução para verificar se tem acesso a internet ou se é ERRO 404"""
+
+        tentativas = 0
+        site = self.pegar_site_tratado(site)
+        print("Site: ", site)
+
+        while tentativas < 3:
+            try:
+                host = gethostbyname(site)
+                s = create_connection((host, 80), 2)
+                return True
+            except:
+                tentativas += 1
+
+        return False
+
     # SELECIONA PROCESSOS DO BANCO DE DADOS E PROCURA NA PLATAFORMA PARA UPDATE NO BANCO
     def search_process_to_update(self, user, password, row_database, dict_plp_2grau):
         # INICIA O BROWSER E A SESSÃO NA PLATAFORMA
-        self.user=user
-        self.password=password
-        self.initializer(user=user, password=password)
+        global prc_numero
+        flag_inico = True  # flag para verificar se é o primeiro login
+        self.user = user
+        self.password = password
 
+        tempo_busca = time.time()
+        tentativas = 0
+        numero_itecao = 0
         # VERIFICA CADA NUMERO DE PROCESSO DENTRO DA ESTRUTURA FORNECIDA
         i_n = 0
         numero_de_processo = len(row_database)
-        for i_proc in row_database:
+        while numero_itecao < numero_de_processo:
 
+            print(row_database[numero_itecao])
+            print(numero_itecao)
+            print("Grau: ", self.grau)
             # FRAGMENTAR DADOS DO PROCESSO
             i_n += 1
             try:
+
+                if flag_inico:  # se o site estiver indisponível irá cair na verificação se tem internet ou site fora do ar
+                    self.initializer(user=user, password=password)
+                    flag_inico = False
+
                 t = time.time()
                 prc_numero, prc_id, prc_estado, plp_status, cadastro, plp_codigo, plp_data_update, plp_id, plp_numero, plp_localizado, \
-                t0, bool_2_grau_numero, list_plp_2_grau = self.fragimentar_dados_dos_processo(dados_do_prosseco=i_proc,
-                                                                                              dict_plp_2grau=dict_plp_2grau)
-
-                # VERIFICA SE O NAVEGADOR ESTÁ ABERTO OU VERIFICA SE A SESSÃO ESTÁ ATIVA
-                if not ( self.verificar_se_o_navegador_esta_aberto() or self.check_session() ):
+                t0, bool_2_grau_numero, list_plp_2_grau = self.fragimentar_dados_dos_processo(
+                    dados_do_prosseco=row_database[numero_itecao],
+                    dict_plp_2grau=dict_plp_2grau)
+                # prc_numero ='06007867720208010070'
+                # VERIFICA SE O NAVEGADOR ESTÁ ABERTO
+                if not self.verificar_se_o_navegador_esta_aberto():
                     self.reiniciar_browser()
                     continue
-                #prc_numero = "00098400420178090134"
-                # prc_id = '32014'
-                # plp_id = None
-                # cadastro = None
+
+                # VERIFICA SE A SESSÃO ESTÁ ATIVA
+                if not self.check_session():
+                    self.reiniciar_browser()
+                    continue
+
                 # EXIBIÇÃO DE INFORMAÇÕES PREVIAS E TRATAMENTO DO PRC_NUMERO
                 prc_numero = self.print_info_previo_e_trata_prc_numero(prc_numero=prc_numero, prc_id=prc_id,
                                                                        plp_id=plp_id, i_n=i_n)
-                #prc_numero = '52943206120188090051'
+                # prc_numero = '56059173720198090012'
                 # BUSCA PELO PROCESSO NA PLATAFORMA
-                busca = self.busca_processo_na_plataforma(prc_numero=prc_numero, tupla_processo=i_proc,
-                                                     t0=t0, row_database=row_database)
 
-                #input('kaio lindo')
+                busca = self.busca_processo_na_plataforma(prc_numero=prc_numero,
+                                                          tupla_processo=row_database[numero_itecao],
+                                                          t0=t0, row_database=row_database)
                 if busca:
-                    # input('CAPTURA PLP_CODIGO')
                     self.new_search(tempo=t0)
+                    numero_itecao += 1
+
                     continue
                 # CAPTURA PLP_CODIGO
 
                 aux = self.request_access()
                 plp_codigo = aux if plp_codigo is None or aux is not None else plp_codigo
 
-
                 # COLETA OS ACOMPANHAMENTOS DO PROCESSO
-                t = time.time()
 
-                list_aud, list_acp_pra, list_name_urls,\
+                list_aud, list_acp_pra, list_name_urls, \
                 bool_2_grau, err1, not_refresh = self.acomp_down_aud(prc_id=prc_id, ult_mov=cadastro,
-                                                                     bool_2_grau_numero=bool_2_grau_numero, full=self.flag)
+                                                                     bool_2_grau_numero=bool_2_grau_numero, full=False)
 
-                print("COLETA OS ACOMPANHAMENTOS DO PROCESSO ->>", time.time() - t)
-
-                t = time.time()
+                # print("COLETA OS ACOMPANHAMENTOS DO PROCESSO ->>", time.time() - t)
 
                 # VERIFICA SE HOUVE ERRO NA COLETA DOS ACOMPANHAMENTOS
+                if not err1:  # Se tiver movimentações
 
-                print(f"ERRO COLETA DE DOWLOAD? {err1}")
-                if not err1:
                     list_partes = []
                     list_advogs = []
 
-                    if(self.flag or len(list_acp_pra)):
+                    if (False or len(list_acp_pra) > 0):
                         # COLETA DO NUMERO DO PROCESSO DO 2 GRAU E CRIAR O PLP CASO HAJA NO 2º GRAU!
                         list_plp_2_grau = self.validar_bool_2_grau(bool_2_grau=bool_2_grau,
                                                                    bool_2_grau_numero=bool_2_grau_numero,
@@ -673,7 +771,6 @@ class RootModel:
 
                         # IDENTIFICA OS ENVOLVIDOS E RETORNA UMA LISTA COM AS PARTES, OS ADVOGADOS E O JUIZ
 
-
                         list_partes, list_advogs = self.envolvidos()
 
                         print("\n#IDENTIFICA OS ENVOLVIDOS E RETORNA UMA LISTA COM AS PARTES, OS ADVOGADOS E O JUIZ\n")
@@ -683,54 +780,70 @@ class RootModel:
                         # EXIBIÇÃO DE INFORMAÇÕES DAS PARTES
                         self.print_if_parte(list_partes, list_advogs)
 
-
                     # CRIA O OBJETO PROCESSO-PLATAFORMA QUE SERÁ INSERIDO NO BANCO DE DADOS
                     process_platform = self.montar_processo_plataforma(prc_id=prc_id, prc_numero=prc_numero,
-                                                                       plp_codigo=plp_codigo, flag=self.flag or len(list_acp_pra))
-
+                                                                       plp_codigo=plp_codigo,
+                                                                       flag=len(list_acp_pra) > 0)
+                    t = time.time()
+                    print("plp_id->", plp_id)
                     # CRIANDO LISTA OBJETOS E INSERINDO NO BANCO DE DADOS
                     self.construct_list_obj_insert_bd(process_platform=process_platform, list_partes=list_partes,
-                                                       list_advogs=list_advogs, list_aud=list_aud,
-                                                       list_acp_pra=list_acp_pra,
-                                                       plp_id=plp_id, list_plp_2_grau=list_plp_2_grau,
-                                                       list_name_urls=list_name_urls
-                                                       )
+                                                      list_advogs=list_advogs, list_aud=list_aud,
+                                                      list_acp_pra=list_acp_pra,
+                                                      plp_id=plp_id, list_plp_2_grau=list_plp_2_grau,
+                                                      list_name_urls=list_name_urls
+                                                      )
 
-                    print("# CRIANDO LISTA OBJETOS E INSERINDO NO BANCO DE DADOS",time.time() - t)
+                    print("# CRIANDO LISTA OBJETOS E INSERINDO NO BANCO DE DADOS", time.time() - t)
                     # LIMPA A PASTA PARA RECEBER OS NOVOS DOWNLOADS
                     self.clear_path_download()
                     print('###Tempo total da coleta de dados do processo: {} SECS'.format(time.time() - t0).upper())
                     print('-' * 65)
-                    # input('CAPTURA PLP_CODIGO')
-                    self.new_search(tempo=t0)
+                    numero_itecao += 1
+                    tentativas = 0
                     continue
-
-                if not_refresh:
-                    self.reiniciar_browser()
-                aux_i_prc = [i for i in i_proc]
-                row_database.append(aux_i_prc)
-
 
                 # LIMPA A PASTA PARA RECEBER OS NOVOS DOWNLOADS
                 self.clear_path_download()
+                self.new_search(tempo=t0)
                 print('###Tempo total da coleta de dados do processo: {} SECS'.format(time.time() - t0).upper())
                 print('-' * 65)
+                tentativas = 0
+                numero_itecao += 1
 
 
             except Exception as Erro:
+                # print(Erro)
+                name_img = "erro.png"
+                verificar = self.conectadoInternet(self.site)  # Verifica se a página de loguin está fora do ar
 
-                print(Erro)
-                # raise
+                while (not verificar):  # Eseperar o site voltar
+                    verificar = self.conectadoInternet(self.site)  # Verifica se a página de loguin está fora do ar
+                    print("INTERNET CAIU OU SITE FORA DO AR")
 
-                aux_i_prc = [i for i in i_proc]
-                row_database.append(aux_i_prc)
-                print("ERRO INESPERADO NO PROCESSO {}".format(i_n))
-                raise
+                if tentativas > 1:  # Tenta buscar duas vezes
+                    tentativas = 0
+                    numero_itecao += 1
+                    try:
+                        name_img = "ErroProcesso-" + prc_numero + " - " + self.platform_name + ".png"
+                        self.browser.save_screenshot(name_img)
+                    except:  # Quando o navegador está fechado ele não consegue tirar print
+                        pass
 
+                    mensagem = "ERRO NO PROCESSO: {} <br> ESTADO DO PROCESSO : {} <br>" \
+                               "<br> PLATAFORMA {}<br>".format(row_database[numero_itecao][0],
+                                                               row_database[numero_itecao][2], self.platform_name)
+                    if len(str(Erro)) > 0:
+                        mensagem += "\t ERRO: " + str(Erro)
 
-            # input('dejejas continiar')
-            # input('deseja continuar==============')
-            self.new_search(tempo=t0)
+                    self.enviar_relatorio_email(mensagem, name_img)
+                    if (name_img != "erro.png"):
+                        os.remove(name_img)
+
+                self.browser.quit()
+                self.initializer(user=user, password=password)
+
+                tentativas += 1
 
         # VERIFICA SE O NAVEGADOR FECHOU, SENÃO O FECHA
         if self.browser is not None:

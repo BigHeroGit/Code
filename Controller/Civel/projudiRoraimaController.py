@@ -1,17 +1,8 @@
 from Model.toolsModel import *
-from Model.parteModel import ParteModel
-from Model.Civel.projudiModel import ProjudiModel
 from Model.logErrorModel import LogErrorModelMutlThread
-from Model.audienciaModel import AudienciaModel
-from Model.responsavelModel import ResponsavelModel
-from Model.acompanhamentoModel import AcompanhamentoModel
-from Model.processoArquivoModel import ProcessoArquivoModel
-from Model.processoPlataformaModel import ProcessoPlataformaModel
-from Model.Civel.pjeModel import PjeModel as TratarAudiencia
 from Controller.Civel.projudiAmazonasController import projudiAmazonasController
-
 class projudiRoraimaController(projudiAmazonasController):
-    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau='1Grau'):
+    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau=1):
         super().__init__(site, mode_execute, access, platform_id, platform_name, 'RR', grau)
         self.platform_name = platform_name
         self.platform_id = int(platform_id)

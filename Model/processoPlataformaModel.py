@@ -25,7 +25,8 @@ class ProcessoPlataformaModel:
                  plp_localizado=None,
                  plp_migrado=None,
                  plp_grau=None,
-                 plp_data_update=None):
+                 plp_data_update=None,
+                 plp_id = None):
 
         self.plp_prc_id = plp_prc_id
         self.plp_plt_id = plp_plt_id
@@ -54,3 +55,4 @@ class ProcessoPlataformaModel:
         self.plp_migrado = plp_migrado
         self.plp_grau = plp_grau
         self.plp_data_update = plp_data_update
+        self.plp_id = plp_id

@@ -12,7 +12,7 @@ import os
 import re
 
 class esajBahiaController(EsajModel):
-    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau='1Grau'):
+    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau=1):
         state = 'BA'
         link_consulta = "http://esaj.tjba.jus.br/cpopg/open.do"
         super().__init__(site, mode_execute, access, platform_id, platform_name, state, num_thread, link_consulta, flag,

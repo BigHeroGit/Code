@@ -1,6 +1,4 @@
-from threading import Thread
-
-import pyautogui
+from selenium.webdriver.common import alert
 
 from Model.toolsModel import *
 from Model.parteModel import ParteModel
@@ -11,12 +9,8 @@ from Model.responsavelModel import ResponsavelModel
 from Model.acompanhamentoModel import AcompanhamentoModel
 from Model.processoArquivoModel import ProcessoArquivoModel
 from Model.processoPlataformaModel import ProcessoPlataformaModel
-from Model.Civel.pjeModel import PjeModel as TratarAudiencia
 
 class projudiGoiasController(ProjudiModel):
-    def threaded_function(self):
-        time.sleep(2)
-        pyautogui.press('enter')
     # CONSTRUTOR DA CLASSE
     def __init__(self, site, mode_execute, access, platform_id, platform_name, flag, num_thread, grau=1):
 
@@ -28,7 +22,7 @@ class projudiGoiasController(ProjudiModel):
         self.num_thread = num_thread
 
         self.log_error = LogErrorModelMutlThread(platform_name=platform_name, state=self.state,
-                                                 num_thread=self.num_thread,grau=grau)
+                                                 num_thread=self.num_thread, grau=grau)
 
     # MONTAR PROCESSO-PLATAFORMA  ************* PRONTO *************
     def montar_processo_plataforma(self, prc_id, prc_numero, flag,plp_codigo):
@@ -54,22 +48,21 @@ class projudiGoiasController(ProjudiModel):
     # REALIZA LOGIN ************* PRONTO *************
     def login(self, user, password):
         try:
-            # thread = Thread(target=self.threaded_function)
-            # thread.start()
-
-            wait = WebDriverWait(self.browser, 10)
-            wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div[3]/div[2]/form[2]/div/input')))
-            self.browser.find_element_by_xpath('/html/body/div[1]/div[3]/div[2]/form[2]/div/input').click()
+            self.browser.find_element_by_id('login').send_keys(user)
+            self.browser.find_element_by_id('senha').send_keys(password, Keys.RETURN)
 
             wait = WebDriverWait(self.browser, 10)
             wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="divCorpo"]/fieldset[1]/label/a')))
             self.browser.find_element_by_xpath('//*[@id="divCorpo"]/fieldset[1]/label/a').click()
 
-            # iframe = self.browser.find_element_by_id('Principal')
+
+            wait = WebDriverWait(self.browser, 10)
+            wait.until(EC.presence_of_element_located((By.ID, 'Principal')))
+            iframe = self.browser.find_element_by_id('Principal')
 
 
-            # self.browser.switch_to.frame(iframe)
-            # wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div[1]/h2')))
+            self.browser.switch_to.frame(iframe)
+            wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div/div[1]/h2')))
             return True
         except Exception as e:
             print('\n********************\nERRO LOGIN REINICIANDO O NAVEGADOR\n********************/\n')
@@ -79,9 +72,8 @@ class projudiGoiasController(ProjudiModel):
     # DEU 1 ERRO DE LOGADO EM OUTRA MAQUINA
     def find_process(self, prc_numero, plp_codigo):
         # RETORNA TRUE SE TIVER ENCONTRADO
-
         # IF PARA PROCESSO QUE JÁ FOI BUSCADO PELO MENOS UMA VEZ
-        #input(plp_codigo)
+
         if plp_codigo is not None:
             self.browser.get('https://projudi.tjgo.jus.br/BuscaProcessoUsuarioExterno?PaginaAtual=-1&Id_Processo={}'
                              '&PassoBusca=2'.format(plp_codigo))
@@ -89,37 +81,36 @@ class projudiGoiasController(ProjudiModel):
 
         # EXECUTA 3 TENTATIVAS DE ACESSO A PAGINA DE BUSCA DE PROCESSO
         tentativas = 3
-        # input('1234567...')
         while tentativas > 0:
+
             try:
                 self.browser.get(
-                    'https://projudi.tjgo.jus.br/BuscaProcessoUsuarioExterno?PaginaAtual=3&Proprios=1')
-                    # 'https://projudi.tjgo.jus.br/BuscaProcessoUsuarioExterno?PaginaAtual=2&Proprios=0')
+                    'https://projudi.tjgo.jus.br/BuscaProcessoUsuarioExterno?PaginaAtual=2&Proprios=0')
                 break
             except:
                 tentativas -= 1
                 if tentativas == 0:
                     self.reiniciar_browser()
 
+
         # VERIFICAR SE DEU ERRO DE USUARIO NA PAGINA ****************************************************************
 
-
         # CLICA NO 'X' PARA REMOVER O ATIVO
+        wait = WebDriverWait(self.browser, 20)
+        wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="divEditar"]/fieldset/fieldset/label[1]/input[4]')))
+        self.browser.find_element_by_xpath('//*[@id="divEditar"]/fieldset/fieldset/label[1]/input[4]').click()
 
-        btn_X = self.browser.find_elements_by_xpath('//*[@id="divEditar"]/fieldset/fieldset/label[1]/input[4]')
-        if len(btn_X) > 0:
-            btn_X[0].click()
         # INSERE O NUMERO DO PROCESSO NO SEU CAMPO DEVIDO
-        wait = WebDriverWait(self.browser, 10)
-        wait.until(EC.presence_of_element_located((By.ID, 'ProcessoNumero')))
-        self.browser.find_element_by_id('ProcessoNumero').send_keys(prc_numero[:7] + '.' + prc_numero[7:9])
+        wait = WebDriverWait(self.browser, 5)
+        wait.until(EC.visibility_of_element_located((By.XPATH, '/html/body/div/form/div/fieldset/input[1]')))
+        self.browser.find_element_by_xpath('/html/body/div/form/div/fieldset/input[1]').send_keys(
+            "{}.{}".format(prc_numero[:7],prc_numero[7:9]))
 
         # CLICA NO BOTÃO 'Buscar'
         self.browser.find_element_by_xpath('//*[@id="divBotoesCentralizados"]/input[1]').click()
 
-        time.sleep(2)
-        # IF PARA VERIFICAR SE O PROCESSO FOI LOCALIZADO
-        if self.browser.find_elements_by_xpath('/html/body/div[2]/div[1]/button'):
+        # IF PARA VERIFICAR SE O PROCESSO NÃO FOI LOCALIZADO
+        if not self.browser.find_elements_by_id('Tabela'):
             return False
 
         # FOR VARE A TABELA QUE EXIBE LOGO APOS A BUSCA DO PROCESSO E ABRE O PROCESSO
@@ -290,7 +281,10 @@ class projudiGoiasController(ProjudiModel):
             wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath_aux_data)))
 
             # COLETA E TRATA A DATA DA ULTIMA MOVIMENTAÇÃO
+            aux_data = self.browser.find_element_by_xpath(xpath_aux_data)
+            aux_data.location_once_scrolled_into_view
             aux_data = self.browser.find_element_by_xpath(xpath_aux_data).text
+
             aux_data = Tools.treat_date(aux_data)
 
             # CASO A VARIAVEL ult_mov FOR None QUER DIZER QUE O PROCESSO É A PRIMEIRA VEZ QUE ESTA SENDO PROCURADO
@@ -324,10 +318,9 @@ class projudiGoiasController(ProjudiModel):
         self.browser.get('https://projudi.tjgo.jus.br/DescartarPendenciaProcesso?PaginaAtual=8')
 
         # FECHA O ALERTE QUE É EXIBIDO QUANDO O GET É EXECUTADO
-        wait = WebDriverWait(self.browser, 5)
-        wait.until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[5]/div[3]/div/button')))
-        self.browser.find_element_by_xpath('/html/body/div[5]/div[3]/div/button').click()
-
+        btn = self.browser.find_elements_by_xpath('/html/body/div[5]/div[3]/div/button')
+        if len(btn):
+            btn[0].click()
         # CAPTURA TABELA DE MOVIMENTAÇÕES
         movimentacoes = self.browser.find_elements_by_xpath('//*[@id="TabelaArquivos"]/tbody/tr')
 
@@ -338,6 +331,8 @@ class projudiGoiasController(ProjudiModel):
             if i % 2 != 0:
                 # CAPTURA A DATA DA MOVIMENTAÇÃO aux_data
                 xpath_aux_data = '/html/body/div[2]/form/div[1]/div/div[1]/table/tbody/tr[{}]/td[3]'.format(i)
+                aux_data = self.browser.find_element_by_xpath(xpath_aux_data)
+                aux_data.location_once_scrolled_into_view
                 aux_data = self.browser.find_element_by_xpath(xpath_aux_data).text
                 # GARANTE QUE A MOVIMENTAÇÃO ESTA VISIVEL PARA O USUARIO E EVITA ERRO DE NÃO POSSIVEL SELECIONAR
                 xpath_aux_data_secundario = '/html/body/div[2]/form/div[1]/div/div[1]/table/tbody/tr[{}]/td[3]'.format(i if i-2 <= 0 else i-2)
@@ -426,19 +421,18 @@ class projudiGoiasController(ProjudiModel):
     # VALIDA SE O NUMERO DO PROCESSO CONTIDO NA PLATAFORMA E O MESMO CONTIDO NA BASE ***************************** PRONTO *************************
     def validar_numero_plataforma(self, prc_numero):
     # RETORNA False SE O NUMERO FOR CORRETO
+
         # TRATA SEGREDO DE JUSTIÇA
         if self.secret_of_justice():
             self.browser.find_element_by_xpath('/html/body/div/form/div[2]/div[2]/table/tbody/tr[1]/td[7]/input').click()
 
         # VERIFICA SE O NUMERO DO PROCESSO JÁ APARECEU E CAPTURA O TEXTO
-        wait = WebDriverWait(self.browser, 20)
+        wait = WebDriverWait(self.browser, 5)
         wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/form/div[1]/fieldset/span[1]')))
 
         numero_no_site = self.browser.find_element_by_xpath('/html/body/div[2]/form/div[1]/fieldset/span[1]').text
         # REMOVE OS . E - DO NUMERO DO PROCESSO
         numero_no_site = re.sub('[^0-9]', '', numero_no_site)
-        #print('{} <> {}'.format(numero_no_site,prc_numero))
-        #input(prc_numero)
         return prc_numero not in numero_no_site
 
     # BAIXA OS ANEXOS E CRIA ACOMPANHAMENTO ASSOCIANDO OS ANEXOS CONTIDOS NELES
@@ -453,11 +447,11 @@ class projudiGoiasController(ProjudiModel):
             wait.until(EC.presence_of_element_located((By.XPATH, xpath_aux_docs)))
         except:
             pass
-            #input("\n\n\n\t\t\t1770")
 
         ul_files = self.browser.find_elements_by_xpath(xpath_aux_docs)
         if len(ul_files) > 0:
             ul_files[0].location_once_scrolled_into_view
+
         ul_files = self.browser.find_elements_by_xpath(xpath_aux_docs)
         j = 0
         for li in ul_files:
@@ -488,18 +482,8 @@ class projudiGoiasController(ProjudiModel):
             title = li_els[0].get_attribute('title').lower()
 
             # VERIFICA SE TEM PDF PARA DOWNLOAD
-            #input("testa ai {}".format(i+1))
-            #'/html/body/div[2]/form/div[1]/div/div[1]/table/tbody/tr[{}]/td/ul/li/div[2]/div[1]/a'
-            #'/html/body/div[2]/form/div[1]/div/div[1]/table/tbody/tr[]'
-            #pdf = 0
-            #wait = WebDriverWait(self.browser, 10)
-            #wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/form/div[1]/div/div[1]/table/tbody/tr[6]/td/ul/li/div[2]/div[1]/a')))
-            #if ".pdf" in self.browser.find_element_by_xpath('/html/body/div[2]/form/div[1]/div/div[1]/table/tbody/tr[6]/td/ul/li/div[2]/div[1]/a').text:
-            #    pdf = 1
-            #input('ammm')
             pdf = li.find_elements_by_xpath('div[4]/div/a')
 
-            # MANOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
             if '.wav' in title:
                 arq = open('ProcessoContemAudio.txt', 'r')
                 string = arq.read()
@@ -517,7 +501,6 @@ class projudiGoiasController(ProjudiModel):
             if not self.check_file_session():
                 print("erro o check_file_session")
                 return False
-            #input('pdf?')
             if '.mp3' in title or len(pdf) == 0:
                 if '.html' in title:
                     li_els[0].click()
@@ -525,13 +508,17 @@ class projudiGoiasController(ProjudiModel):
                     direct = 1
                     self.donwloadAcompanhamento(arq[0])
                 else:
-                    if '.mp3' in title:
-                        self.browser.execute_script('arguments[0].setAttribute("download", "");', li_els[0])
                     # document.createElement('div');
-
+                    self.browser.execute_script('arguments[0].setAttribute("download", "");', li_els[0])
                     li_els[0].click()
             else:
                 pdf[0].click()
+
+            try:
+                alert = self.browser.switchTo().alert();
+                alert.accept();
+            except:
+                pass
 
             t += 1
             try:
@@ -542,6 +529,7 @@ class projudiGoiasController(ProjudiModel):
             except TimeoutException:
                 if len(self.browser.window_handles) > 1:
                     self.browser.switch_to_window(self.browser.window_handles[1])
+                    time.sleep(4)
                     erro = self.browser.find_elements_by_class_name('texto_erro')
                     if len(erro) > 0 and 'Sem Permis' in erro[0].text:
                         self.browser.close()
@@ -553,10 +541,12 @@ class projudiGoiasController(ProjudiModel):
 
             acp_pra_status = acp_pra_status and (not err_down)
 
-            desc_file1 = self.browser.find_elements_by_xpath(xpath_aux_docs + "[{}]/div[2]/div[1]/a".format(j))
-            desc_file = ''
-            if len(desc_file1) > 0:
-                desc_file = desc_file1[0].text
+            xpath_dowload_arquivo = xpath_aux_docs + '[{}]/div[2]/div[1]/a'
+            xpath_dowload_arquivo = xpath_dowload_arquivo.format(j)
+
+            wait = WebDriverWait(self.browser, 10)
+            wait.until(EC.element_to_be_clickable((By.XPATH, xpath_dowload_arquivo)))
+            desc_file = self.browser.find_element_by_xpath(xpath_dowload_arquivo).text
 
             nome = Tools.convert_base(str(datetime.now()))
 
@@ -641,6 +631,8 @@ class projudiGoiasController(ProjudiModel):
                                                           aud_prc_id=prc_id,
                                                           aud_status=status,
                                                           aud_data=data)
+                # print("STATUS - > ";status)
+
             elif 'REDESIGNADA' in status or 'REMARCADA' in status:
                 dict_audiences[tipo].aud_status = status
                 dict_audiences[(tipo, i)] = dict_audiences[tipo]
@@ -691,8 +683,8 @@ class projudiGoiasController(ProjudiModel):
         # INICIALIZA AS VARIAVEIS COMO NONE
         juizo, classe, status, assunto, fase, valor_causa, dt_distribuicao = [None] * 7
 
-        #input(self.grau)
         grau_position = 2
+        print("GRAUUUUUUUUUUUUUUUUUU {}".format(self.grau))
         if self.grau == 1:
             grau_position = 3
 
@@ -737,24 +729,18 @@ class projudiGoiasController(ProjudiModel):
             valor_causa = n[0].text
             valor_causa = Tools.treat_value_cause(valor_causa)
 
-        n = self.browser.find_elements_by_xpath('/html/body/div[2]/form/div[1]/fieldset/fieldset/fieldset[{}]/span[8]'.format(grau_position))
-        if len(n) > 0 and n[0].text == "Visualizar":
-            xpath_date = '/html/body/div[2]/form/div[1]/fieldset/fieldset/fieldset[3]/span[9]'
-            dt_distribuicao = self.browser.find_element_by_xpath(xpath_date).text
+        n = self.browser.find_elements_by_xpath('//*[@id="VisualizaDados"]/fieldset[{}]/span[8]'.format(grau_position))
+        print("Grau_position-> {}".format(grau_position))
+        if len(n) > 0:
+            print("Datault - >" + n[0].text)
+
+            if "Visualizar" in n[0].text:
+                n = self.browser.find_elements_by_xpath(
+                    '/html/body/div[2]/form/div[1]/fieldset/fieldset/fieldset[{}]/span[9]'.format(grau_position))
+
+            dt_distribuicao = n[0].text
             dt_distribuicao = Tools.treat_date(dt_distribuicao)
-        else:
-            if grau_position == 2:
-                n = self.browser.find_elements_by_xpath(
-                    '//*[@id="VisualizaDados"]/fieldset[{}]/span[8]'.format(3))
-                if len(n) > 0 and n[0].text != '':
-                    dt_distribuicao = n[0].text
-                    dt_distribuicao = Tools.treat_date(dt_distribuicao)
-            else:
-                n = self.browser.find_elements_by_xpath(
-                    '//*[@id="VisualizaDados"]/fieldset[{}]/span[8]'.format(2))
-                if len(n) > 0 and n[0].text != '':
-                    dt_distribuicao = n[0].text
-                    dt_distribuicao = Tools.treat_date(dt_distribuicao)
+
         return juizo,classe,status,assunto,fase,valor_causa,dt_distribuicao
 
     # VARIFICAR SE O GRAU ALTEROU ********************* PRONTO *************************

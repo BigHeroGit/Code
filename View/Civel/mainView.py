@@ -2,7 +2,7 @@
 
 
 # coding: utf-8
-__autors__ = 'Leonardo Bidó, Aurélio Santos'
+__autors__ = 'Aurélio Santos'
 
 import os
 import pickle
@@ -37,28 +37,7 @@ try :
         dict_plp_2grau = aux[1]
         dict_plp_2grau = pickle.loads(eval(dict_plp_2grau))
         print("Nº",len(row_database))
-        row_database1 = row_database[0:int(len(row_database)/2)]
-        row_database2 = row_database[int(len(row_database)/2) + 1:len(row_database)]
 
-        print("row1 -> Nº",len(row_database1))
-        print("row2 -> Nº", len(row_database2))
-
-        k=0
-        for i in row_database1:
-            print("ID:{} {}".format(k,i))
-            k=k+1
-            if k == 10:
-                break
-
-        print('\n\n\n\n\n')
-        k = 0
-        for i in row_database2:
-            print("ID:{} {}".format(k, i))
-            k = k + 1
-            if k == 10:
-                break
-
-        #input('mito?')
         ###################################################################################################################
         # raise
         ###################################################################################################################
@@ -114,7 +93,7 @@ try :
 
             estado = {'MA' : 'MARANHÃO', 'GO' : 'GOIAS', 'AM' : 'AMAZONAS', 'RR' : 'RORAIMA', 'PA' : 'PARA', "BA":"BAHIA"}
             print('{}\n{} - {}\n{}'.format('#' * 30, platform_name.upper(), estado[argv[2].upper()], '#' * 30))
-            #input('eu')
+
             projudi_ma = projudiThreadController(platform_id=platform_id, platform_name=platform_name, state=argv[2].upper(),
                                            flag=False,
                                            row_database=row_database, dict_plp_2grau=dict_plp_2grau, num_thread=i,

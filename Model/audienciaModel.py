@@ -1,6 +1,7 @@
 class AudienciaModel:
 
-    def __init__(self, aud_prc_id=None,
+    def __init__(self,aud_id = None,
+                 aud_prc_id=None,
                  aud_plp_id=None,
                  aud_usr_id=None,
                  aud_tipo=None,
@@ -14,3 +15,4 @@ class AudienciaModel:
         self.aud_tipo = aud_tipo
         self.aud_status = aud_status
         self.aud_obs = aud_obs
+        self.aud_plp_id = aud_id

@@ -1,6 +1,7 @@
 class ResponsavelModel():
 
-    def __init__(self, rsp_nome=None,
+    def __init__(self,
+                 rsp_nome=None,
                  rsp_tipo=None,
                  rsp_oab=None):
         self.rsp_nome = rsp_nome

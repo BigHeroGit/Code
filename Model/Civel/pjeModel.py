@@ -13,17 +13,18 @@ from selenium import webdriver
 from time import sleep
 
 class PjeModel(RootModel):
-    def __init__(self, site, mode_execute, SQL_Long, platform_id, platform_name, state,num_thread,link_consulta,flag,grau='1Grau'):
+    def __init__(self, site, mode_execute, SQL_Long, platform_id, platform_name, state,num_thread,link_consulta,flag,grau=1):
         self.num_thread = num_thread
         self.grau = grau
         self.flag = flag
         self.state = state
         self.link_consulta = link_consulta
-        self.grau = 1 if '1' in grau else 2
+        self.grau = 1 if 1 == grau else 2
         self.log_error = LogErrorModelMutlThread(platform_name=platform_name, state=self.state,
                                                  num_thread=self.num_thread, grau=self.grau)
-
-
+        self.prc_numero = ""  # flag para reload
+        self.parou = 0
+        self.donwload_cont = 0
         self.verifica_segredo = 'pje/Processo/CadastroPeticaoAvulsa/peticaoavulsa.seam' # Campo verifica se o processo está em segredo de justiça
 
         self.montar_dicionario()
@@ -35,21 +36,15 @@ class PjeModel(RootModel):
     # VALIDA A INICIALIZAÇÃO DA VARREDURA NA PLATAFORMA
     def initializer(self):
 
-        while True:
-            # INICIALIZA BROWSER
-            if self.init_browser():
-                # self.browser.set_window_position(-10000, 0)
+        # INICIALIZA BROWSER
+        if self.init_browser():
+            # self.browser.set_window_position(-10000, 0)
+            # LOGIN NA PLATAFORMA
+            login = self.login()
+            print("Loguin: ", login)
 
-                # LOGIN NA PLATAFORMA
-                login = self.login()
-                if login:
-                    print("Loguin: ", login)
-                    break
-                else:
-                    if self.state == "RO":
-                        keyboard.press_and_release('\n')
-            if self.browser is not None :
-                self.browser.quit()
+
+
 
         # VERIFICA CADA NÚMERO DE PROCESSO RETORNADO DO BANCO DE DADOS NA PLATAFORMA
 
@@ -161,6 +156,7 @@ class PjeModel(RootModel):
 
     # REALIZA LOGIN
     def login(self):
+
         try:
             wait = WebDriverWait(self.browser, 30)
             if self.state == "RO": # O RO é necessário cliclar em sim para logar
@@ -175,8 +171,7 @@ class PjeModel(RootModel):
 
                 #Clicar para lohgar
                 wait = WebDriverWait(self.browser, 10)
-                wait.until(
-                    EC.visibility_of_element_located((By.ID, 'loginAplicacaoButton')))
+                wait.until(EC.visibility_of_element_located((By.ID, 'loginAplicacaoButton')))
                 self.browser.find_element_by_xpath('//*[@id="loginAplicacaoButton"]').click()
                 if not Tools.clicker_certificado_pje(25): # Clilcar no OK para logar
 
@@ -189,10 +184,12 @@ class PjeModel(RootModel):
                     sleep(0.5)
                     return  not Tools.WindowExists('SunAwtDialog','Autorização')
                 else: # Se deu certo apagar o aquivo que identifica o click
-                    wait.until(EC.visibility_of_element_located((By.ID, 'tabExpedientes_lbl')))
+
+                    wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'botao-menu')))
                     #wait.until(EC.visibility_of_element_located((By.ID, 'home')))
                     nome_arq = "{}.cdp".format(str(self.num_thread))
                     dir = os.listdir(self.arq_name)
+
                     for file in dir:
                         if nome_arq in file:
                             os.remove(os.path.join(self.arq_name, file))
@@ -202,33 +199,20 @@ class PjeModel(RootModel):
             else:
 
                 wait = WebDriverWait(self.browser, 40)
-                if self.state=="BA":
-                    try:
-                        wait.until(EC.visibility_of_element_located((By.XPATH,  '//*[@id="mpModoOperacaoContentTable"]/tbody/tr'))) # esperar a tela do como deseja logar no pje BA aparecer
-                        self.browser.find_element_by_xpath('//*[@id="mpModoOperacaoContentDiv"]/div/span/i').click() # Fechar a janela de como deseja logar no pje
-                    except:
-                        print("\n\n\n\t\t\t\tERRO\n\n\n")
-
-                        pass
 
                 wait.until(EC.visibility_of_element_located((By.ID, 'loginAplicacaoButton')))
-                self.browser.find_element_by_xpath('//*[@id="loginAplicacaoButton"]').click()
+                self.browser.find_element_by_id('loginAplicacaoButton').click()
 
-                # Esperar a mensagem de validação de certificação desaparecer
+
                 wait.until(EC.invisibility_of_element((By.ID,'mp_formValidarContentTable')))
 
                 wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'botao-menu')))
-                teste = self.browser.find_elements_by_id('tabExpedientes_lbl')
-                # print("Passou....", len(teste))
 
-                #olha aqui
-                # wait.until(EC.visibility_of_element_located((By.ID, ''
-                #                                                     '')))
 
-            return True
-        except Exception as Erro:
-            # input("Deu ruim no loguin, Errp: {}".format(Erro) )
-            print("\n\n\n\t\t\t\t 231 ERRO\n\n\n")
+
+                return True
+        except TimeoutException: # não conseguiu fazer o loguin por conta do site
+            print("ERRO AO FAZER LOGUIN, ESPERAR UM TEMPO PARA TENTAR DE NOVO")
             return False
 
     # BUSCA PROCESSO NO PROJUDI
@@ -264,7 +248,7 @@ class PjeModel(RootModel):
             wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o site carregar
 
             #wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="fPP:processosTable:tb"]/tr/td[1]/a')))
-            # input("deseja contnura")
+
             processos =self.browser.find_elements_by_xpath('//*[@id="fPP:processosTable:tb"]/tr')
             if len(processos)>0:# Veroficar se existe apareceu, se apareceu processo então ele existe
                 self.browser.find_element_by_xpath('//*[@id="fPP:processosTable:tb"]/tr/td[1]/a').click()
@@ -273,6 +257,7 @@ class PjeModel(RootModel):
                     alert = self.browser.switch_to_alert()
                     alert.accept()
                 except:
+                    raise
                     print("\n\n\n\t\t\t\tERRO\n\n\n")
 
                     pass
@@ -284,6 +269,7 @@ class PjeModel(RootModel):
         # except TimeoutException:
 
         except Exception as erro:
+            raise
             print("Erro na busca do processo: ", erro)
             print("\n\n\n\t\t\t\tERRO\n\n\n")
             self.log_error.insert_log("Erro ao colocar o numero do processo na plataforma!")
@@ -417,6 +403,7 @@ class PjeModel(RootModel):
 
 
             except Exception as Erro :
+                raise
                 tentativas +=1
                 print(Erro)
                 print("\n\n\n\t\t\t\tERRO\n\n\n")
@@ -441,7 +428,7 @@ class PjeModel(RootModel):
                 self.browser.switch_to_window(self.browser.window_handles[-1])  # Status está na pagina de busca
                 break
             except Exception as erro:
-
+                raise
                 tentar+=1
                 print("Erro : " + str(erro))
                 self.recuperar_pag_envolvidos(numero_processo=n_proc)  # Recarega a pagina
@@ -462,10 +449,9 @@ class PjeModel(RootModel):
     def realizar_loguin(self):
 
         # Inicialzar o browser
-        try:
-            inicializacao = self.init_browser()
-        except:
-            raise
+
+        inicializacao = self.init_browser()
+
         if inicializacao: # Se for falso deu algo de errado
             loguin = self.login() # Realiza o loguin na plataforma
             if not loguin: #  Se não conseguiu logar
@@ -485,14 +471,13 @@ class PjeModel(RootModel):
     def coloca_numero_campos(self, numero_processo, xpath ='//*[@id="fPP:numProcessoDiv"]/div/div/div[2]/input' ):
 
         # buscar campo inteiro
-        print("Numero_processo:", numero_processo)
+
         campo = self.browser.find_elements_by_xpath(xpath)
         # Intervalos para setar o campo
 
         tam_campos = [0,7,9,13,14,16,21]
         i = 0
-        # print("Tamanho dos compos:", len(campo))
-        # sleep(60*60)
+
         for preencher in campo:
 
             preencher.clear()
@@ -515,7 +500,7 @@ class PjeModel(RootModel):
                 break
         # As vezes o alerta aparece as vezes não
         try:  # Gambirar para ver se existe alerta
-            # input('As vezes o alerta aparece as vezes não')
+
             WebDriverWait(self.browser, 0.8).until(EC.alert_is_present())
             alert = self.browser.switch_to.alert
             alert.accept()
@@ -536,7 +521,7 @@ class PjeModel(RootModel):
         # VERIFICA EM PETICIONAR SE E SEGREDO DE JUSTIÇA
         # 1 SE FOR BAHIA E TIVER ACHADO O PROCESSO
 
-        try:
+
             wait = WebDriverWait(self.browser,3)
             link_peticionar = self.link_consulta.replace('pje/Processo/ConsultaProcesso/listView.seam', 'pje/Processo/CadastroPeticaoAvulsa/peticaoavulsa.seam')
             self.browser.get(link_peticionar)
@@ -565,13 +550,6 @@ class PjeModel(RootModel):
             if 'sigiloso' in  aux[0].text :
                 return True
 
-
-        except Exception as erro:
-            self.log_error.insert_log(str(erro))
-            print("\n\n\n\t\t\t\tERRO\n\n\n")
-
-            return False
-
             #SE PASSAR AQUI ENTÃO ESTÁ EM SEGREDO
             # print("fdfjidf")
 
@@ -592,30 +570,19 @@ class PjeModel(RootModel):
 
 
     def buscar_processo_plataforma(self,numero_processo):
-        # SE ACHOU O PROCESSO RETORNA 2, SE NÃO ACHOU 0, SEGREDO DE JUSTIÇA -1
+        """FUNÇÃO RETORNA SE ACHOU O PROCESSO RETORNA 2, SE NÃO ACHOU 0, SEGREDO DE JUSTIÇA -1"""
+
         if len(numero_processo) != 20:
             numero_processo = numero_processo.lstrip('0')
             numero_processo = numero_processo.rjust(20, '0')
 
         tentar = 0
-        print("Stado:", self.state)
-
-        #
-
-        try:
-            if len(self.browser.find_elements_by_xpath('//*[@id="j_id118"]/span')):
-                self.browser.execute_script('fecharPopupAlertaCertificadoProximoDeExpirar();')
-        except Exception as erro:
-            print("\n\n\n\t\t\t\tERRO\n\n\n")
-            # input(str(erro))        # input('599')
-
 
         while tentar < 2:
             tentar+=1
             try:
                 wait = WebDriverWait(self.browser, 3)
-                link_peticionar = self.link_consulta.replace('/Processo/ConsultaProcesso/listView.seam',
-                                                             '/Processo/CadastroPeticaoAvulsa/peticaoavulsa.seam')
+                link_peticionar = self.link_consulta.replace('/Processo/ConsultaProcesso/listView.seam','/Processo/CadastroPeticaoAvulsa/peticaoavulsa.seam')
                 self.browser.get(link_peticionar)
 
                 # xpath campo onde serão colocados o numero do processo
@@ -623,18 +590,18 @@ class PjeModel(RootModel):
                 wait.until(EC.visibility_of_element_located((By.XPATH, xpath + '[1]')))  # Esperar o campo aparecer
 
                 self.coloca_numero_campos(numero_processo, xpath)
-                try:
+                try: # AS VEZES NÃO APARECE O ALERT
                     alert = self.browser.switch_to_alert()
                     alert.accept()
                 except Exception as erro:
-                    print("\n\n\n\t\t\t",erro,'\n\n\n\n')
+                    print("NÃO APARECEU O ALERTA AO ENTRAR NO PROCESSO")
 
                 wait = WebDriverWait(self.browser, 2)
                 # input("desejas continuar")
                 wait.until(EC.invisibility_of_element_located((By.ID, 'modalStatusContainer')))
 
+
                 aux = self.browser.find_elements_by_xpath('/html/body/div[6]/div/div/div/div[2]/form/div[2]/div[2]/dl/dt/span')
-                # input("deseja continuar -> {}".format(len(aux)))
                 if not len(aux):
                     self.clicar_ir_acompanhamento(numero_processo, True)  # Clilcar para abrir o processo
                     return 2
@@ -645,20 +612,14 @@ class PjeModel(RootModel):
 
                 return sigilo
 
-
-                return sigilo
-
-
             except Exception as erro:
-                self.log_error.insert_log(str(erro))
-
-
+                raise
                 return 0
 
     def montar_objeto_nao_encontrado(self,plp_localizado,prc_id,n_proc,segredo):
 
-        self.log_error.insert_info('Processo não encontrado!')
-        print('Processo não encontrado!\nplp_localizado{}'.format(plp_localizado))
+
+        print('PROCESSO NÃO ENCONTRADO :( \n PLP_LOCALIZADO DO PROCESSO :{}'.format(plp_localizado))
         if (plp_localizado == None):
             plp_localizado = 2
         elif 1 < plp_localizado < 5:
@@ -677,31 +638,7 @@ class PjeModel(RootModel):
 
         return  process_platform
 
-    def tamanho_movimentacoes(self):
-        # FUNÇÃO PARA PEGAR O TAMANHO DAS MOVIMENTAÇÕES
-        xpath_movimentos = '//*[@id="divTimeLine:divEventosTimeLine"]/div'
-        if self.state == "PA":
-            # xpath_lista_movimentacoes = '//*[@id="divTimeLine:eventosTimeLineElement"]/div'.format('divEventosTimeLine') # Lista de movimentações
-            xpath_movimentos = xpath_movimentos.replace('divEventosTimeLine','eventosTimeLineElement')  # Lista de movimentações
-        tam = len(self.browser.find_elements_by_xpath(xpath_movimentos)) # PEGAR O TAMANHO DAS MOVIMENTAÇÕES
-        k = 0
-        while k < tam:
-            try:
-                self.espera_view()
-                coordenadas = self.new_linha((tam - 1)).location_once_scrolled_into_view # COLOCA O ELEMENTO VISIVEL NA TELA
-                self.browser.execute_script('window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
-                self.espera_view()
-            except:
-                print("\n\n\n\t\t\t\tERRO\n\n\n")
 
-                pass
-            self.espera_view()
-            k = tam
-            print("MOV ATUAL:", tam)
-            tam = len(self.browser.find_elements_by_xpath(xpath_movimentos)) # ATUALIZAR O TAMANHO, AS VEZES A PAGINA PODE RECARREGAR
-        self.browser.refresh()
-        self.espera_view()
-        return tam
 
     def reposicionar_movimentacoes(self,i):
         # FUNÇÃO PARA PEGAR O TAMANHO DAS MOVIMENTAÇÕES
@@ -720,6 +657,7 @@ class PjeModel(RootModel):
                 self.browser.execute_script('window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
                 self.espera_view()
             except:
+                raise
                 pass
             self.espera_view()
             k = tam
@@ -742,6 +680,7 @@ class PjeModel(RootModel):
                (By.ID, '_viewRoot:status.start')))  # Esperar o site carregar
             return  True
         except:
+            raise
             print("\n\n\n\t\t\t\tERRO\n\n\n")
             return  False
 
@@ -759,37 +698,39 @@ class PjeModel(RootModel):
             i+=1
         return  ''.join(novo)
 
+    def fazer_loguin_pje(self):
+        """Função para fazer loguin na plataforma do pje, ela apenas loga no sistema"""
+        cont = 0
+        while True:
+            loguin = self.realizar_loguin()
+            if loguin:
+                print("\n\nLogin Realizado com Sucesso.")
+                return True
+            self.browser.quit() # Fechar o browser
+            cont+=1 # contador de minutos
+
+            sleep(60)  # esperar  1 minuto para tentar de novo
+            print("TENATANDO LOGAR A {} MINUTOS....".format(cont))
+
+
+    def reload_processo(self, prc_numero):
+        """Função para fechar o navegador e refazer o loguin no pje"""
+
+        self.browser.quit()
+        self.fazer_loguin_pje()
+        self.buscar_processo_plataforma(prc_numero)
+
+
     def search_process_to_update(self, row_database, dict_plp_2grau):
         self.tamanho_total_mov = 0
         # INICIA O BROWSER E A SESSÃO NA PLATAFORMA
-        # logou = self.initializer()
-        loguin = False
-        cont = 0
 
-        while(not loguin) and cont < 3:
+        self.fazer_loguin_pje() # tenta realizar loguin de 1 em 1 minuto, as vezes a plataforma fica fora do ar
 
-            loguin = self.realizar_loguin()
-            if not loguin:
-                print("NÃO LOGOU, TENTANDO DE NOVO....")
-                try:
-                    self.browser.quit()
-                except:
-                    print("\n\n\n\t\t\t\tERRO\n\n\n")
-
-
-                    pass
-            cont+=1
-        if cont >= 3:
-            print("NÃO CONSEGUIU LOGAR, TENTAR RODAR DE NOVO OS PROCESSOS")
-            return -1
-        print("Logou ? ", loguin)
         #sleep(60*60)
-        list_partes = []
-        list_advogs = []
 
         # VERIFICA CADA NUMERO DE PROCESSO DENTRO DA ESTRUTURA FORNECIDA
         i_n = 0
-        #self.browser.set_window_position(-10000,0)
 
         for i_proc in row_database:
             try:
@@ -806,19 +747,19 @@ class PjeModel(RootModel):
                 # prc_numero = "07042319320198070001"
                 # prc_numero = "00020566320108140010"
                 prc_numero = self.numero_processo(prc_numero)
+                self.prc_numero = prc_numero
 
-                prc_numero = self.numero_processo(prc_numero)
 
-                print("VERREDURA NUMERO :",i_n, " NUMERO DO PROCESSO: ",prc_numero)
+                print("\nVERREDURA NUMERO :",i_n, " NUMERO DO PROCESSO: ",prc_numero,"\n")
 
-                self.log_error.insert_title(prc_numero)
+
                 # prc_numero='00027591520138140066'#Segredo
 
                 #Busca processo na plataforma
                 situacao_processo  = self.buscar_processo_plataforma(prc_numero)
 
-                print("Busca: ", "Achou" if situacao_processo == 2 else "Não Achou")
-                # print(f'situacao_processo  {situacao_processo}')
+                print("O PROCESSO FOI ", "ENCONTRADO" if situacao_processo == 2 else "NÃO FOI ENCONTRADO")
+
                 if situacao_processo == 2: # Achou o processo,  pegar as informações
 
                     # COLETA OS ACOMPANHAMENTOS DO PROCESSO
@@ -864,6 +805,8 @@ class PjeModel(RootModel):
                 print('###Tempo total da coleta de dados do processo: {} SECS'.format(time.time() - t0).upper())
                 print('-' * 65)
             except Exception as ERRO:
+                raise
+
                 print("\n\n\n\t\t\t\tERRO\n\n\n")
 
                 print(ERRO)
@@ -881,95 +824,20 @@ class PjeModel(RootModel):
 
         return i_n
 
-    # REALIZA O DOWNLOAD DO ARQUIVO
-    def check_download(self, acp, prc_id, n_event, file_downloaded, list_name_urls, list_file_name, list_file_path):
-        err = False
-        try:
-            bara = self.browser.find_element_by_xpath('//*[@id="divTimeLine:divEventosTimeLine"]/div[1]')  # Data fica na frete do click ocutar ele
-            self.browser.execute_script('arguments[0].style.display = "none";', bara)  # ocutar a data
-            wait = WebDriverWait(self.browser, 60)
-            wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))
 
-            n_files = len(os.listdir(self.path_download_prov)) #+ 1
-            bara = self.browser.find_element_by_xpath('//*[@id="divTimeLine:divEventosTimeLine"]/div[1]')  # Data fica na frete do click ocutar ele
-            self.browser.execute_script('arguments[0].style.display = "none";', bara)  # ocutar a data
-            button_download = acp.find_element_by_xpath('//*[@id="detalheDocumento:download"]')
-            webdriver.ActionChains(self.browser).move_to_element(button_download).click(button_download).perform()
-            # button_download.click()
-            wait = WebDriverWait(self.browser, 10)
-            wait.until(EC.alert_is_present())
-            alert = self.browser.switch_to_alert()
-            alert.accept()
-            self.browser.switch_to_default_content()
-            bara = self.browser.find_element_by_xpath('//*[@id="divTimeLine:divEventosTimeLine"]/div[1]')  # Data fica na frete do click ocutar ele
-            self.browser.execute_script('arguments[0].style.display = "none";', bara)  # ocutar a data
-
-            err_down = self.wait_download(n_files)
-            try:  # VERIFICA SE A SESSÃO FOI ENCERRADA
-                if len(self.browser.window_handles) > 2:
-                    if self.browser is not None:
-                        self.browser.quit()
-            except:
-                self.log_error.insert_log('Download do arquivo: evento {}!'.format(n_event))
-                err = True
-                print("\n\n\n\t\t\t\tERRO\n\n\n")
-
-
-            if not err_down:
-                for arq in os.listdir(self.path_download_prov):
-                    if arq not in list_file_path:
-                        list_file_path.append(arq)
-                        file_downloaded = arq
-                        break
-
-                desc_file = file_downloaded.split('.')[0]
-                nome = Tools.convert_base(str(datetime.now()))
-                list_name_urls.append((nome, file_downloaded))
-                ext = file_downloaded.split('.')[-1].lower()
-                nome = nome + '.' + ext
-                list_file_name.append(ProcessoArquivoModel(pra_prc_id=prc_id,
-                                                           pra_nome=nome,
-                                                           pra_descricao=desc_file))
-                acp_pra_status = True
-            else:
-                # print("VARIAVEL CHECK TRUE pjemodel 466")
-                self.log_error.insert_log('Download do arquivo: evento {}!'.format(n_event))
-                acp_pra_status = False
-        except:
-            print("\n\n\n\t\t\t\tERRO\n\n\n")
-
-            self.log_error.insert_log('Download do arquivo: evento {}!'.format(n_event))
-            acp_pra_status = False
-
-        # print("Saiu da função check!")
-        return acp_pra_status, err, list_file_name
-
-        # PEGA ANDAMENTOS DO PROCESSO, AS AUDIÊNCIAS E REALIZA OS DOWNLOADS POR ACOMPANHAMENTO
 
     # PEGA ANDAMENTOS DO PROCESSO, AS AUDIÊNCIAS E REALIZA OS DOWNLOADS POR ACOMPANHAMENTO
 
     # ir na aba de audiencias e pegar as audiencias
     def pegar_audiencias_nova_aba(self):
 
-            id_opcao_audiencia = 'navbar:linkAbaAudiencia'  # opçao que deve ser cliclado para ir para aba de audienci
+
             xpath_tabela_audiencia = '//*[@id="processoConsultaAudienciaGridList:tb"]/tr'
-            # input('id_opcao_audiencia = '.format(id_opcao_audiencia))
+
 
             lista_de_audiencia = []
-            if  len( self.browser.find_elements_by_id(id_opcao_audiencia))==0:
-                return lista_de_audiencia
-
-
-            wait = WebDriverWait(self.browser, 60)  # Objeto para espera
-            wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME,'btn-menu-abas')))  # Esperar a bara do menu apararecer
-            menu = self.browser.find_elements_by_class_name('btn-menu-abas') # Botão superior do menu
-            menu[-1].click() # Cliclar para abrir o menu
-
-            # Esperar todas as opções do menu aparecer
-            # input(" \n\n\n\t\t951")
-            wait.until(EC.visibility_of_element_located((By.ID,id_opcao_audiencia))) # Esperar A opção de audiencia aparecer
-
-            self.browser.find_elements_by_id(id_opcao_audiencia)[0].click() # Abrir as audiencias
+            self.browser.execute_script("A4J.AJAX.Submit('navbar',event,{'similarityGroupingId':'navbar:linkAbaAudiencia','parameters':{'navbar:linkAbaAudiencia':'navbar:linkAbaAudiencia'} } );")
+            wait = WebDriverWait(self.browser,10)
 
             wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o site carregar
 
@@ -1016,7 +884,7 @@ class PjeModel(RootModel):
     def verifica(self, n_files, list_file_path, list_name_urls, nome_donwload = None):
 
         err_down = self.wait_download(n_files)
-        print(f"err_dow -> {err_down}")
+        #print(f"err_dow -> {err_down}")
         if not err_down:  # not err_down: # se o download concluiu totalmente sem nehum erro
             # print('dentro if')
             arquivo = set(os.listdir(self.path_download_prov)).difference(set(list_file_path))  # difereça de dois conjunts
@@ -1051,108 +919,108 @@ class PjeModel(RootModel):
     @staticmethod
     def treat_audience(list_audiences, prc_id) :
         # print(">>>>>>>>>Lista de audiência>>>",list_audiences)
-        try :
-            dict_audiences = {}
-            list_audiences.reverse()
-            for i_aud in list_audiences :
 
-                tipo, status, data1, obs, data2 = i_aud
-                # print(tipo, status, data1, obs, data2 )
-            for i_aud in list_audiences :
+        dict_audiences = {}
+        list_audiences.reverse()
 
-                tipo, status, data1, obs, data2 = i_aud
-                # print(f"tipo {tipo}, status{status}\n data1 {data1},  data2 {data2} \nobs {obs},")
+        for i_aud in list_audiences :
 
-                if data1 is not None :
-                    key = data1.timetuple()[:3]
-                    data = data1
+            tipo, status, data1, obs, data2 = i_aud
+            # print(f"tipo {tipo}, status{status}\n data1 {data1},  data2 {data2} \nobs {obs},")
 
-                    str_data = str(data)
-                    if str_data[0] == "0":
-                        str_data = "2" + str_data[1:]
-                        g = str_data.split(' ')
-                        str_data = g[0].split('-')[-1] +"/" + g[0].split('-')[-2]+"/" + g[0].split('-')[-3] +" "+ g[-1]
+            if data1 is not None :
+                key = data1.timetuple()[:3]
+                data = data1
 
-                        data = Tools.treat_date(str_data)
-                        key = data.timetuple()[:3]
-                else :
+                str_data = str(data)
+                if str_data[0] == "0":
+                    str_data = "2" + str_data[1:]
+                    g = str_data.split(' ')
+                    str_data = g[0].split('-')[-1] +"/" + g[0].split('-')[-2]+"/" + g[0].split('-')[-3] +" "+ g[-1]
 
-                    key = data2.timetuple()[:3]
+                    data = Tools.treat_date(str_data)
+                    key = data.timetuple()[:3]
+            else :
 
-                    data = data2
-                    list_aux = list(dict_audiences.keys())
-                    list_aux.append(key)
-                    list_aux.sort()
-                    i = list_aux.index(key) - 1
-                    if i < 0 :
-                        continue
-                    key = list_aux[i]
+                key = data2.timetuple()[:3]
 
-                print("key",key)
+                data = data2
+                list_aux = list(dict_audiences.keys())
+                list_aux.append(key)
+                list_aux.sort()
+                i = list_aux.index(key) - 1
+                if i < 0 :
+                    continue
+                key = list_aux[i]
 
-                # print("Data: testetettetet : ", (data))
+            print("key",key)
+
+            # print("Data: testetettetet : ", (data))
 
 
 
 
-                if status == 'DESIGNADA' and key not in dict_audiences.keys() :
+            if status == 'DESIGNADA' and key not in dict_audiences.keys() :
 
 
+                dict_audiences[key] = AudienciaModel(aud_tipo=tipo,
+                                                     aud_status=status,
+                                                     aud_data=data,
+                                                     aud_obs=obs,
+                                                    aud_prc_id=prc_id
+                                                     )
+
+            elif status in [ 'CONCLUÍDA','DESIGNADA', 'REDESIGNADA', 'NEGATIVA', 'CANCELADA', 'NÃO-REALIZADA', 'REALIZADA','NÃO REALIZADA', 'PENDENTE'] :
+                # print("Data: testetettetet : ", data[0])
+                if  key not in dict_audiences.keys(): # Se não existir a chave então cria
                     dict_audiences[key] = AudienciaModel(aud_tipo=tipo,
                                                          aud_status=status,
                                                          aud_data=data,
                                                          aud_obs=obs,
-                                                        aud_prc_id=prc_id
+                                                         aud_prc_id= prc_id
                                                          )
 
-                elif status in [ 'CONCLUÍDA','DESIGNADA', 'REDESIGNADA', 'NEGATIVA', 'CANCELADA', 'NÃO-REALIZADA', 'REALIZADA','NÃO REALIZADA', 'PENDENTE'] :
-                    # print("Data: testetettetet : ", data[0])
-                    if  key not in dict_audiences.keys(): # Se não existir a chave então cria
-                        dict_audiences[key] = AudienciaModel(aud_tipo=tipo,
-                                                             aud_status=status,
-                                                             aud_data=data,
-                                                             aud_obs=obs,
-                                                             aud_prc_id= prc_id
-                                                             )
+                dict_audiences[key].aud_status = status if status is not None else dict_audiences[
+                    key].aud_status
+                dict_audiences[key].aud_data = data if data is not None else dict_audiences[key].aud_data
+                dict_audiences[key].aud_tipo = tipo if tipo is not None else dict_audiences[key].aud_tipo
 
-                    dict_audiences[key].aud_status = status if status is not None else dict_audiences[
-                        key].aud_status
-                    dict_audiences[key].aud_data = data if data is not None else dict_audiences[key].aud_data
-                    dict_audiences[key].aud_tipo = tipo if tipo is not None else dict_audiences[key].aud_tipo
+        list_audiences.clear()
 
-            list_audiences.clear()
-            list_aux = []
-            for i in dict_audiences.values() :
-                if id(i) not in list_aux :
-                    list_audiences.append(i)
-                    print("\n", i.aud_tipo, '\n', i.aud_status, '\n', i.aud_data, '\n', i.aud_obs, '\n',i.aud_plp_id,'\n',i.aud_prc_id)
-                    list_aux.append(id(i))
-        except :
-            print("\n\n\n\t\t\t\tERRO\n\n\n")
-            list_audiences.clear()
-            self.log_error.insert_log('coleta de dados das audiências do processo!'.upper())
-            print('ERRO coleta de dados das audiências do processo!'.upper())
-            # sleep(60*60)
+        for i in dict_audiences.values() :
 
-            # raise
+            list_audiences.append(i)
+            print("\n", i.aud_tipo, '\n', i.aud_status, '\n', i.aud_data, '\n', i.aud_obs, '\n',i.aud_plp_id,'\n',i.aud_prc_id)
+
+
+
+
 
         return list_audiences
+    def ir_para_aba(self,n_aba):
+        """função para trocar de aba, é passado o numero da aba(n_aba) que deseja ir"""
+        self.browser.switch_to_window(self.browser.window_handles[n_aba])
+    # def ocutar_data_pje(self):
+    #
+    #
+    #     #self.ir_para_aba(-1) # ir para útima aba
+    #
+    #     #WebDriverWait(self.browser,10).until(EC.visibility_of_element_located((By.CLASS_NAME,"data-interna")))
+    #
+    #     bara = self.browser.find_elements_by_class_name('data-interna')  # Data fica na frete do click ocutar ele
+    #     data2_xpat='/html/body/div/div[2]/div[2]/table/tbody/tr[2]/td/table/tbody/tr/td/form[1]/div[2]/div[1]/div'
+    #     # print(f"len({len(bara)})->{bara[0].text}",end='\t')
+    #     if self.state == "PA":
+    #         data2_xpat='/html/body/div/div[2]/div[2]/table/tbody/tr[2]/td/table/tbody/tr/td/form[1]/div[2]/div[1]/div[1]/div'
+    #
+    #     data2_elemento= self.browser.find_elements_by_xpath(data2_xpat)
+    #
+    #     self.browser.execute_script('arguments[0].style.display = "none";', data2_elemento[0])  # ocutar a data
+    #
+    #
+    #     # Lista de movimentações
+    #     self.browser.execute_script('arguments[0].style.display = "none";', bara[0])  # ocutar a data
 
-    def ocutar_data_pje(self):
-        bara = self.browser.find_elements_by_class_name('data-interna')  # Data fica na frete do click ocutar ele
-        data2_xpat='/html/body/div/div[2]/div[2]/table/tbody/tr[2]/td/table/tbody/tr/td/form[1]/div[2]/div[1]/div'
-        # print(f"len({len(bara)})->{bara[0].text}",end='\t')
-        if self.state == "PA":
-            data2_xpat='/html/body/div/div[2]/div[2]/table/tbody/tr[2]/td/table/tbody/tr/td/form[1]/div[2]/div[1]/div[1]/div'
-
-        data2_elemento= self.browser.find_elements_by_xpath(data2_xpat)
-
-        self.browser.execute_script('arguments[0].style.display = "none";', data2_elemento[0])  # ocutar a data
-
-
-        # Lista de movimentações
-        self.browser.execute_script('arguments[0].style.display = "none";', bara[0])  # ocutar a data
-        # input("dc")
 
     def new_linha(self,i):
         xpath_eventos='//*[@id="divTimeLine:divEventosTimeLine"]/div'
@@ -1168,162 +1036,90 @@ class PjeModel(RootModel):
 
         # FAZ TODOS OS DONWLOADS DE UM ACOMPANHAMENTO
 
-    def fazer_download(self, caminho, list_name_urls, lista_donwload,url_prov = None):
+    def fazer_download(self, linha, list_name_urls, lista_donwload,numero_linha = None):
 
         # o primeiro donwload fica localizado na tag 'a'
         # lista_donwload é a lista de donwloads
-        self.ocutar_data_pje()  # Tirar a data porque ela pode ficar na frente
-
+        print("##################### BAIXANDO DOCUMENTOS #####################")
         tentativas = 0
         wait = WebDriverWait(self.browser, 20)
 
-        verificar = self.browser.find_elements_by_xpath(caminho+'/a')
-        if len(verificar)==0: # Verificar se foi cancelado
-            print("Cancelado")
-            return True
-
-        nome_arquivos = os.listdir(self.path_download_prov)  # quantidade de elementos antes do donwload
-        # print("Tamanho dos donload : ", len(nome_arquivos))
-        div_anexos = self.browser.find_element_by_xpath(caminho)  # Caminho onde estão os donwloads
-        nome =[] # Lista de nomes dos downloads
-        indice_id = 0
-        nomes_span = div_anexos.find_elements_by_tag_name('span') # nomes dos dowloads que está na pagina(cada nome tem um id) estão na span
-        for i in nomes_span:
-            aux = str(i.text)
-            aux = aux.split("-")[0]
-            nome.append(aux)
-
-        wait.until(EC.element_to_be_clickable((By.XPATH, caminho + '/a')))
-        self.browser.execute_script("arguments[0].click();", div_anexos)
-        # div_anexos.find_element_by_xpath('a').click() # cliclar na linha que tem do donwload e o documento aparecera no lado
-
-        wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
-
-        self.ocutar_data_pje()
 
 
-        wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="detalheDocumento:download"]')))
+        tam_list_donwload = len(linha.find_elements_by_tag_name('a'))
+        # print("tamanho:" , tam_list_donwload)
+        # input("parar")
 
-        button_download = self.browser.find_element_by_xpath('//*[@id="detalheDocumento:download"]')  # Icone do botão
+        print("Tamanho dos donwloads:",tam_list_donwload)
+        while self.donwload_cont <  tam_list_donwload:
+            # nomes dos dowloads que está na pagina(cada nome tem um id) estão na span
+            #self.ocutar_data_pje()  # Tirar a data porque ela pode ficar na frente
+            baixar = self.new_linha(numero_linha).find_elements_by_tag_name('a')[self.donwload_cont] # pegar todos o download para baixar
+            print("buscou elemento", baixar.text)
+            if(baixar.get_attribute('title') == "Adicionar lembretes"): # isso é um lembrete que
+                self.donwload_cont+=1
+                continue
+            print("nome documento:", baixar.find_element_by_tag_name('span').text)
+            #  # cliclar na linha que tem do donwload e o documento aparecera no lado
+            nome_arquivos = os.listdir(self.path_download_prov)  # quantidade de elementos antes do donwload
+            simular_click = str(baixar.get_attribute("onclick"))
+            simular_click = simular_click.replace("return false;","")
 
-        button_download.click()  # CLICLAR PARA BAIXAR
-
-
-        WebDriverWait(self.browser, 5).until(EC.alert_is_present())
-        alerta = self.browser.switch_to_alert()
-        alerta.accept()  # Aceitar, ou clicar em "OK"
-
-        self.ocutar_data_pje()
-        # DONWLOAD É UM OBJETO PROCESSO ARQUIVO MODEL
-        # print("Antes verifiva")
-        # print("Tamanho dos donload depois do click: ", len(os.listdir(self.path_download_prov)))
-
-        # self.dicionario_acompanhamento[numero_movimentacao] = [] # map de nomes de download
-
-        # CHEGOU AQUI ESTA FAZENDO DONWLOAD
-        acp_pra_status, download = self.verifica(len(nome_arquivos), nome_arquivos,
-                                                 list_name_urls,nome[indice_id])  # esperar o download concluir
-        indice_id+=1
-        # print("Depis verifica")
-        if download  is not None:
-            lista_donwload.append(download)  # TODOS DOWNLOADS DESSE ACOMPANHAMENTO ESTARÁ AQUI
+            #clilcar no acompanhameto do nome azul para fazer o donwload
+            self.browser.execute_script(simular_click)
+            print("clicou para aparecer")
 
 
-        while(len(self.browser.window_handles)>2): # esperar a aba fechar
-            sleep(0.2) #
-            print("Passou")
-            pass
+            wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
 
-        aquivos_abaixo = self.browser.find_elements_by_xpath(
-            caminho + '/ul')  # SE POSSUIR ESSA CLASSE (TREE), ENTÃO EXISTE MAIS ARQUIVOS PARA SEREM BAIXADOS
-        posicao_movimentacao=int(caminho.split(']/div[')[1])# NUMERO CORRESPONDENETE A MOVIMENTAÇÃO
-
-        if len(aquivos_abaixo) == 0:
-            return True
-        coordenadas = aquivos_abaixo[0].location_once_scrolled_into_view  # Colocar visivel
-        self.browser.execute_script('window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
-        arquivos_baixar = aquivos_abaixo[0].find_elements_by_xpath('li')  # nas LI está todos os sub aquivos para serem baixado
-
-        tam_aquivos = len(arquivos_baixar)
-        sub_aquivos = 0
-        acp_st = acp_pra_status
-        while sub_aquivos < tam_aquivos:  # interar na lista de sub arquivos
-            # sleep(1)
-            try:
-                text=arquivos_baixar[sub_aquivos].find_element_by_xpath('a').text
-
-                self.ocutar_data_pje()  # Tirar data ela pode ficar na frente
-                arquivos_baixar = self.atualizar(caminho)
-                self.ocutar_data_pje()  # Tirar data ela pode ficar na frente
-                coordenadas = arquivos_baixar[sub_aquivos].location_once_scrolled_into_view  # Colocar visivel
-                self.browser.execute_script('window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
-                nome_arquivos = os.listdir(self.path_download_prov)  # quantidade de elementos antes do donwload
-
-                arquivos_baixar[sub_aquivos].find_element_by_xpath('a').click()
-                # print(1189)
-                wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
-                while (len(self.browser.window_handles) > 2):  # esperar a aba fechar
-                    print("While subfiles")
-                    pass
-
-                self.ocutar_data_pje()
+            #
 
 
-                if 'fa fa-file-pdf-o mr-10' in  arquivos_baixar[sub_aquivos].find_element_by_xpath('a/i').get_attribute("class"):
-                    WebDriverWait(self.browser, 5).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="detalheDocumento:download"]')))
-                    div_anexos = self.browser.find_element_by_xpath(caminho)  # Caminho onde estão os donwloads
-                    button_download = div_anexos.find_element_by_xpath('//*[@id="detalheDocumento:download"]')  # Icone do botão
+            wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="detalheDocumento:download"]')))
 
-                    button_download.click()
 
-                    WebDriverWait(self.browser, 5).until(EC.alert_is_present())
+            button_download = self.browser.find_element_by_xpath('//*[@id="detalheDocumento:download"]')  # Icone do botão
 
-                    # sleep(0.5)
-                    alerta = self.browser.switch_to_alert()
-                    alerta.accept()  # Aceitar, ou clicar em "OK"
+            button_download_cod_exec = str(button_download.get_attribute("onclick")) # pegar a função que faz o donwload
+            button_download_cod_exec = button_download_cod_exec[:button_download_cod_exec.rfind("return")]+ button_download_cod_exec[button_download_cod_exec.rfind("return")+6:]
 
-                acp_st = acp_pra_status
+            self.browser.execute_script(button_download_cod_exec)  # CLICLAR PARA BAIXAR
+            print("clicou para baixar no xpath detalheDocumento:download")
 
-                acp_pra_status, download = self.verifica(len(nome_arquivos), nome_arquivos,
-                                                         list_name_urls,nome[indice_id])  # esperar o download concluir
 
-                acp_st = acp_st and acp_pra_status
-
-                if download  is not None :
-                    lista_donwload.append(download)
-                sub_aquivos += 1
-                while (len(self.browser.window_handles) > 2):  # esperar a aba fechar
-                    pass
-
-                indice_id+=1
-            except ElementClickInterceptedException:  # Elemento esta obistruido, não da para cliclar
-                self.log_error.insert_log("SubFiles acompanhamentos")
-                print("Interceptado")
-
-                tentativas += 1
-                if tentativas > 4:
-                    return False
-            except Exception as erro:
-                print("\n\n\n\t\t\t\tERRO\n\n\n")
-                self.log_error.insert_log("SubFiles acompanhamentos")
-                if self.browser.current_url != url_prov:
-                    self.browser.get(url_prov)
-                tentativas += 1
-                if tentativas > 6:
-                    return False
-
-                #QUANDO O scroll DA MOVIMENTÇAÕ VOLTA PARA O TOPO
-
-                if self.reposicionar_movimentacoes(posicao_movimentacao):
-                    aquivos_abaixo = self.browser.find_elements_by_xpath(caminho + '/ul')
-                    arquivos_baixar = aquivos_abaixo[0].find_elements_by_xpath('li')  # nas LI está todos os sub aquivos para serem baixado
-                    self.ocutar_data_pje()
+            WebDriverWait(self.browser, 5).until(EC.alert_is_present())
+            alerta = self.browser.switch_to_alert()
+            alerta.accept()  # Aceitar, ou clicar em "OK"
 
 
 
-                # raise
 
-        return acp_st
+            #teste = self.browser.find_element_by_id('panelAlertContainer')
+
+            mensagem_err = self.browser.find_element_by_xpath('//*[@id="panelAlertContentTable"]/tbody/tr[2]/td')
+            print("Mensagem:", mensagem_err.text)
+            # DONWLOAD É UM OBJETO PROCESSO ARQUIVO MODEL
+
+            # CHEGOU AQUI ESTA FAZENDO DONWLOAD
+            acp_pra_status, download = self.verifica(len(nome_arquivos), nome_arquivos,list_name_urls)  # esperar o download concluir
+
+            self.browser.switch_to_window(self.browser.window_handles[-1])
+            # panelAlertContainer erro de geração de arquivo
+
+            if mensagem_err.text != "":
+                input("Deu erro!")
+
+            if not acp_pra_status:
+                print("Erro ao esperar baixar")
+
+            if download is not None:
+                lista_donwload.append(download)  # TODOS DOWNLOADS DESSE ACOMPANHAMENTO ESTARÁ AQUI
+
+
+            self.donwload_cont+=1
+
+
+
 
     def carregar(self):
 
@@ -1358,26 +1154,24 @@ class PjeModel(RootModel):
         # self.browser.switch_to_window(self.browser.window_handles[-1])
         xpath_lista_movimentacoes = '//*[@id="divTimeLine:divEventosTimeLine"]/div' # Lista de movimentações
         if self.state == "PA":
-            # xpath_lista_movimentacoes = '//*[@id="divTimeLine:eventosTimeLineElement"]/div'.format('divEventosTimeLine') # Lista de movimentações
+
             xpath_lista_movimentacoes = xpath_lista_movimentacoes.replace('divEventosTimeLine','eventosTimeLineElement') # Lista de movimentações
-        # input(xpath_lista_movimentacoes)
+
             wait = WebDriverWait(self.browser, 35)
             wait.until(EC.presence_of_element_located((By.XPATH,xpath_lista_movimentacoes)))
 
         self.status = "ATIVO"
-        caminho = xpath_lista_movimentacoes+'[{}]/div[2]/div[{}]'
+
         lista_de_movimentacoes = self.browser.find_elements_by_xpath(xpath_lista_movimentacoes) # Pega todas as movimentações
         keyword_segundograu = ['CONHECIDO O RECURSO DE', 'REMETIDOS OS AUTOS (EM GRAU DE RECURSO) PARA', 'INSTÂNCIA SUPERIOR']
-        # input(xpath_lista_movimentacoes)
+
         segundo_grau = False
-        list_name_urls_aux = []
+
         list_name_urls = []
         lista_audiencia = []
         lista_acompanhamentos =[]
         lista_donwload_acp =[]
         data_acompanhamento = ""
-        file_downloaded = None
-        list_file_path = []
         flag_pegar_acompanhamentos = True
         # Ultima div não e uma movimentação!!
         tamanho_movimentacoes = len(lista_de_movimentacoes)
@@ -1385,17 +1179,21 @@ class PjeModel(RootModel):
         k =0
         tentativas = 0
         i = 0
-        url_prov = self.browser.current_url # Url dos acompanhamentos atuais
-        # print(f" tamanho_movimentacoes -> {tamanho_movimentacoes}")
-        # input()
-        while i < (tamanho_movimentacoes): # Passar por todos os acompanhamentos para pegar as informações
+        mudou = False
+
+        print("tamanho inicial:", tamanho_movimentacoes)
+
+        while i < (tamanho_movimentacoes-1): # Passar por todos os acompanhamentos para pegar as informações
 
             try:
                 k+=1
                 wait = WebDriverWait(self.browser, 10)
 
+
+                wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
                 wait.until(EC.presence_of_element_located((By.XPATH,'//*[@id="navbar"]')))
-                print(f'i -> {i + 1}')
+
+                #print(f'i -> {i + 1}')
                 linha = self.new_linha(i)# Pega todas as movimentações
 
                 # Quando o nome da classe é 'media data' ou 'media data div-data-rolagem' é onde esta a data dos acompanhamentos
@@ -1410,23 +1208,28 @@ class PjeModel(RootModel):
 
                 if 'media data div-data-rolagem' in nome_da_class_div: # Não possui infomação então passa para a proxima
                     i+=1
+                    self.parou +=1
+                    self.donwload_cont = 0
                     continue
                 if 'media data' in nome_da_class_div  : # Se o nome da class é 'media data' então pegamos a data
                     data_acompanhamento = linha.text # Pegando a data
                     i+=1
+                    self.parou +=1
+                    self.donwload_cont = 0
                     continue # Não tem mais infomrações a serem pegas, então passa para o proximo
 
-                self.ocutar_data_pje()
-                wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
-
-                coordenadas = linha.location_once_scrolled_into_view  # Ficar visivel na tela
-                self.browser.execute_script('window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
-
-                wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
 
 
                 wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
-                # input(' \n\n\t\t{}\n\n'.format(data_acompanhamento))
+
+                # coordenadas = linha.location_once_scrolled_into_view  # Ficar visivel na tela
+                # self.browser.execute_script('window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
+
+                wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
+
+
+                wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
+
                 data_atual =Tools.treat_date( data_acompanhamento)
 
                 if  data_ultima_movimentacao != None and data_atual <= data_ultima_movimentacao:
@@ -1436,22 +1239,19 @@ class PjeModel(RootModel):
 
                 cont += 1
 
+                linha = self.new_linha(i)  # Pega todas as movimentações
+
+
+
+                hora_teste = linha.find_elements_by_class_name('text-muted')  # Pegar a hora do acompanhamento
+                hora_acompanhamento = hora_teste[0].text  # if len(hora_teste) > 0 and tentativas > 1 else "" # Pegar a hora do acompanhamento nas movimentações
+                data_atual = data_acompanhamento + ' ' + hora_acompanhamento  # juntar com a hora que esta na parte superior dos acompaanhamentos
+                data_atual = Tools.treat_date(data_atual)  # tratar a data
+
                 if nome_da_class_div == 'media interno tipo-M': # é um acompanhamento mas não tem donwload pegar a descrição
-                    self.ocutar_data_pje()
-                    linha = self.new_linha(i)  # Pega todas as movimentações
 
-                    coordenadas = linha.location_once_scrolled_into_view # Ficar visivel na tela
-                    self.browser.execute_script( 'window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
 
-                    self.ocutar_data_pje()
-                    #text-muted pull-right
-                    hora_teste = linha.find_elements_by_class_name('text-muted') # Pegar a hora do acompanhamento
 
-                    hora_acompanhamento = hora_teste[0].text #if len(hora_teste)>0 and tentativas > 1 else ""
-                    data_atual =data_acompanhamento+ ' '+hora_acompanhamento
-
-                    data_atual = Tools.treat_date(data_atual)
-                    # '/html/body/div/div[2]/div[2]/table/tbody/tr[2]/td/table/tbody/tr/td/form[1]/div[2]/div[1]/div[3]/div[2]/div[1]/span'
                     descricao_acompanhamento = linha.find_elements_by_xpath('div[2]') # xpath_lista de movimentacoes + 'div[2]/span' onde está a descrição do processo, se exixtir
                     if len(descricao_acompanhamento)==0: # não achou os dados do acompanhamento, no RO ele esta dentro de outra div
                         descricao_acompanhamento = linha.find_elements_by_xpath('div[2]/div[1]/span')
@@ -1475,8 +1275,7 @@ class PjeModel(RootModel):
                     if flag_pegar_acompanhamentos: # Verificar se é para pegar o acompanhamento # + ' '+hora_acompanhamento
                         lista_acompanhamentos.append((AcompanhamentoModel(acp_esp=descricao_acompanhamento,acp_data_cadastro=data_atual, acp_numero= str(tamanho_movimentacoes - i)),lista_donwload_acp))
                 elif nome_da_class_div =='media interno tipo-D' and flag_pegar_acompanhamentos: # Entrou aqui é porque possui donwload,  é a classe 'media interno tipo-D'
-                     self.ocutar_data_pje()
-                     linha = self.new_linha(i)  # Pega todas as movimentações
+
                      dados_acompanhamento = linha.find_elements_by_xpath('div[2]/div') # As informações e donloads estão na div2
                      lista_donwload_acp = [] # limpar a lista para cada acompanhamento
                      posicao_anexo_div = 0 # posiçao da div que estará os anexos
@@ -1484,13 +1283,7 @@ class PjeModel(RootModel):
                      descricao_acompanhamento = ""
                      # Se a posição do anexo é 0, então esse anexo não tem descrição
                      # Se é diferente de 0, então existe descrição de anexos, por exemplo se é 2, então as duas divis acima é descrição
-                     wait.until(EC.presence_of_element_located((By.CLASS_NAME,'text-muted')))
-                     hora_teste = linha.find_elements_by_class_name('text-muted')  # Pegar a hora do acompanhamento
 
-
-                     hora_acompanhamento = hora_teste[0].text #if len(hora_teste) > 0 and tentativas > 1 else "" # Pegar a hora do acompanhamento nas movimentações
-                     data_atual = data_acompanhamento+' '+hora_acompanhamento # juntar com a hora que esta na parte superior dos acompaanhamentos
-                     data_atual = Tools.treat_date(data_atual) # tratar a data
 
                      for divis in dados_acompanhamento: # Procurar a div que está os anexos a serem baixados!
                          if divis.get_attribute('class') == 'anexos': # Se achar a div que esta com os anexos então para
@@ -1501,35 +1294,18 @@ class PjeModel(RootModel):
 
                          posicao_anexo_div+=1
                      segundo_grau = self.verifica_segundo_grau(keyword_segundograu, descricao_acompanhamento)
-                     # Caminho para fazer os donwloads, esse caminho é para pegar o elemento na função atualizado!!!
-                     # caminho = '//*[@id="divTimeLine:divEventosTimeLine"]/div[{}]/div[2]/div[{}]'.format(i+1,posicao_anexo_div+1)
-                     caminho = xpath_lista_movimentacoes + '[{}]/div[2]/div[{}]'.format(i+1,posicao_anexo_div+1)
-                     tryin = 0
-                     acp_pra_status = True
-                     lista_donwload_acp_aux = []
+
 
                      list_name_urls_aux = []
                      lista_donwload_acp_aux = []
-                     print("descricao_acompanhamento {}".format(descricao_acompanhamento))
-                     acp_pra_status = self.fazer_download(caminho,list_name_urls_aux,lista_donwload_acp_aux,url_prov) # Retorna uma lista de donwloads e lista de urls
 
-                     # raise
-                     # pegar o id do primeiro donwload
-                     # print(1437)
-                     div_anexos = self.browser.find_element_by_xpath(caminho)  # Caminho onde estão os donwloads
+                     acp_pra_status = self.fazer_download(linha,list_name_urls_aux,lista_donwload_acp_aux,i) # Retorna uma lista de donwloads e lista de urls
 
-
-
-                     nomes_span = str(div_anexos.find_elements_by_tag_name('span')[0].text)  # nomes dos dowloads que está na pagina(cada nome tem um id) estão na span
-                     nomes_span = nomes_span.split("-")[0] # o id e separado por um traco
-
-                     #print("Nomes_ acp numero: ", nomes_span)
 
                      lista_donwload_acp = lista_donwload_acp_aux
                      list_name_urls += list_name_urls_aux
-                     # input('descricao_acompanhamento -> {} \n  acp_numero -> {} \n acp_data_cadastro -> {} \n acp_pra_status -> {} '.format(descricao_acompanhamento,nomes_span,data_atual,acp_pra_status))
                      lista_acompanhamentos.append((AcompanhamentoModel(acp_esp=descricao_acompanhamento,
-                                                                     acp_numero=nomes_span,
+                                                                     acp_numero=str(tamanho_movimentacoes - i),
                                                                      acp_data_cadastro=data_atual,
                                                                      acp_pra_status=acp_pra_status)
                                                                      ,lista_donwload_acp))
@@ -1537,37 +1313,38 @@ class PjeModel(RootModel):
                      # Verificar se é audiencia e se não e um processo migrado do Projudi para o pje
                      if 'AUDIÊNCIA' in descricao_acompanhamento and not 'EVENTO PROJUDI:' in descricao_acompanhamento:  # Se for uma audiencia
                          print(";", end="")
-                         dados_adiencia = self.separar_dados_audiencia(descricao_acompanhamento, Tools.treat_date(
-                             data_acompanhamento))  # Tratar as audiencias
+                         dados_adiencia = self.separar_dados_audiencia(descricao_acompanhamento, Tools.treat_date(data_acompanhamento))  # Tratar as audiencias
                          if dados_adiencia != False:  # Se retornar falso é porque não e uma audiencia, pode ser por exemplo: "PUBLICADO ATA DA AUDIÊNCIA EM 07/02/2019."
                              lista_audiencia.append(dados_adiencia)
-                data_atual =""
-                i+=1
+
+
+                aux = self.tam_movimentacoes()
+                if (i+3) == tamanho_movimentacoes:
+                    #input("teste")
+                    self.new_linha(i).location_once_scrolled_into_view  # Ficar visivel na tela
+                    # self.browser.execute_script('window.scrollTo({}, {});'.format(coordenadas['x'], coordenadas['y']))
+
+                    #//*[@id="panelAlertContentTable"]/tbody/tr[2]/td/text()
+                i += 1
+                self.donwload_cont = 0
+                self.parou+=1
                 tamanho_movimentacoes = self.tam_movimentacoes()
                 print(".",end="")
                 tentativas = 0
 
             except Exception as erro:
 
-                print("\n\n\n\t\t\t\tERRO\n\n\n")
-                print("()",end="")
-
                 tentativas+=1
                 if tentativas>3:
                     self.log_error.insert_log("ERRO AO PEGAR LISTA DE ACOMPANHAMENTOS")
                     raise
 
-                self.browser.get(url_prov) # atualiazar a apagina
-                print("Erro nos acompanhamentos: ")
-
-                wait.until(EC.invisibility_of_element((By.ID, '_viewRoot:status.start')))  # Esperar o documento aparecer
-                # wait.until(EC.visibility_of_element_located((By.CLASS_NAME,'dropdown drop-menu mais-detalhes')))
-                tamanho_movimentacoes = self.tam_movimentacoes() # atualizar o tamnho da tabela
+                self.reload_processo(self.prc_numero)
 
                 # raise
 
         # print("Tamanho lista URL : ", len(list_name_urls))
-
+        self.parou = 0
         return lista_acompanhamentos, lista_audiencia, list_name_urls, None,segundo_grau
 
 
@@ -1620,6 +1397,7 @@ class PjeModel(RootModel):
                 return False
             return (tipo, status, data, None, data2)
         except:
+            raise
             print("\n\n\n\t\t\t\tERRO\n\n\n")
 
             return False
@@ -1670,6 +1448,7 @@ class PjeModel(RootModel):
 
                 ]
         except:
+            raise
             list_plp_2_grau = []
             self.log_error.insert_log('coleta dos numeros do processo do 2 grau!'.upper())
             print("\n\n\n\t\t\t\tERRO\n\n\n")
@@ -1691,6 +1470,7 @@ class PjeModel(RootModel):
                 try:
                     self.browser.quit()
                 except:
+                    raise
                     print("\n\n\n\t\t\t\tERRO\n\n\n")
 
                     pass
@@ -1724,6 +1504,7 @@ class PjeModel(RootModel):
                 break
 
             except Exception as Erro:
+                raise
                 self.recuperar_pag_envolvidos(numero_processo=prc_num) # Recarega a pagina
                 qtd_erro +=1
                 print(Erro)
@@ -1750,7 +1531,7 @@ class PjeModel(RootModel):
             print("prc_numero",prc_numero)
             return prc_numero not in numero_no_site
         # except:
-        #     # a=input("Erro validar_numero_plataforma")
+
         #     # raise
         #     return True
 
@@ -1794,7 +1575,7 @@ class PjeModel(RootModel):
         #             print(f"{key} = {value}")
         #     print('\n')
         #
-        # input('pode continuar')
+
 
 
         #INSERE A LISTA DE OBJETOS NO BANCO DE DADOS

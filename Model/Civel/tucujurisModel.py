@@ -11,8 +11,8 @@ from Model.audienciaModel import AudienciaModel
 
 
 class TucujurisModel(RootModel):
-    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag,num_thread,grau='1Grau'):
-        self.grau = 1 if '1' in grau else '2'
+    def __init__(self, site, mode_execute, access, platform_id, platform_name, flag,num_thread,grau=1):
+        self.grau = 1 if 1 == grau else 2
         self.log_error = None
         self.state = "AP"
         self.platform_name = platform_name
